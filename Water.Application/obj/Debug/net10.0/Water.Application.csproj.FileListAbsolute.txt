@@ -1,0 +1,15 @@
+D:\utf\waterly\backend\Water.Application\bin\Debug\net10.0\Water.Application.deps.json
+D:\utf\waterly\backend\Water.Application\bin\Debug\net10.0\Water.Application.dll
+D:\utf\waterly\backend\Water.Application\bin\Debug\net10.0\Water.Application.pdb
+D:\utf\waterly\backend\Water.Application\bin\Debug\net10.0\Water.Domain.dll
+D:\utf\waterly\backend\Water.Application\bin\Debug\net10.0\Water.Domain.pdb
+D:\utf\waterly\backend\Water.Application\obj\Debug\net10.0\Water.Application.csproj.AssemblyReference.cache
+D:\utf\waterly\backend\Water.Application\obj\Debug\net10.0\Water.Application.GeneratedMSBuildEditorConfig.editorconfig
+D:\utf\waterly\backend\Water.Application\obj\Debug\net10.0\Water.Application.AssemblyInfoInputs.cache
+D:\utf\waterly\backend\Water.Application\obj\Debug\net10.0\Water.Application.AssemblyInfo.cs
+D:\utf\waterly\backend\Water.Application\obj\Debug\net10.0\Water.Application.csproj.CoreCompileInputs.cache
+D:\utf\waterly\backend\Water.Application\obj\Debug\net10.0\Water.Ap.1024FE58.Up2Date
+D:\utf\waterly\backend\Water.Application\obj\Debug\net10.0\Water.Application.dll
+D:\utf\waterly\backend\Water.Application\obj\Debug\net10.0\refint\Water.Application.dll
+D:\utf\waterly\backend\Water.Application\obj\Debug\net10.0\Water.Application.pdb
+D:\utf\waterly\backend\Water.Application\obj\Debug\net10.0\ref\Water.Application.dll

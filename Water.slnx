@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="Water.Api/Water.Api.csproj" />
+  <Project Path="Water.Application/Water.Application.csproj" />
+  <Project Path="Water.Domain/Water.Domain.csproj" />
+  <Project Path="Water.Infrastructure/Water.Infrastructure.csproj" />
+  <Project Path="Water.Tests.Integration/Water.Tests.Integration.csproj" />
+  <Project Path="Water.Tests.Unit/Water.Tests.Unit.csproj" />
+</Solution>

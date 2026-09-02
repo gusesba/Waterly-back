@@ -1,0 +1,6 @@
+{
+  "Water.Api, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "D:\\utf\\waterly\\backend\\Water.Api",
+  "Water.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "D:\\utf\\waterly\\backend\\Water.Application",
+  "Water.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "D:\\utf\\waterly\\backend\\Water.Domain",
+  "Water.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "D:\\utf\\waterly\\backend\\Water.Infrastructure"
+}
