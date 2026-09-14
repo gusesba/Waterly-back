@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Water.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Water.Infrastructure.Persistence;
 namespace Water.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(WaterDbContext))]
-    partial class WaterDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260914175922_AddBeverageCatalog")]
+    partial class AddBeverageCatalog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -192,14 +195,14 @@ namespace Water.Infrastructure.Persistence.Migrations
                         new
                         {
                             Code = "coffee",
-                            HydrationFactor = 0.800m,
+                            HydrationFactor = 1.000m,
                             IsActive = true,
                             SortOrder = 3
                         },
                         new
                         {
                             Code = "tea",
-                            HydrationFactor = 0.900m,
+                            HydrationFactor = 1.000m,
                             IsActive = true,
                             SortOrder = 4
                         });
@@ -284,44 +287,6 @@ namespace Water.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("HydrationGoals");
-                });
-
-            modelBuilder.Entity("Water.Domain.Hydration.HydrationOperation", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ClientOperationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("EntryId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("OperationType")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<string>("Payload")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTimeOffset>("ProcessedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId", "ClientOperationId")
-                        .IsUnique();
-
-                    b.ToTable("HydrationOperations");
                 });
 
             modelBuilder.Entity("Water.Domain.Profiles.ProfileGoal", b =>
@@ -506,15 +471,6 @@ namespace Water.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("Water.Domain.Hydration.HydrationGoal", b =>
-                {
-                    b.HasOne("Water.Infrastructure.Identity.ApplicationUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Water.Domain.Hydration.HydrationOperation", b =>
                 {
                     b.HasOne("Water.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()

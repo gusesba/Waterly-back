@@ -85,6 +85,67 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(2600, hydration.DailyTargetMl);
         Assert.Single(hydration.Entries);
         Assert.Equal(entryRequest.ClientEntryId, hydration.Entries.Single().ClientEntryId);
+        Assert.Equal("water", hydration.Entries.Single().BeverageCode);
+
+        var beveragesResponse = await _client.GetAsync("/api/v1/hydration/beverages");
+        Assert.Equal(HttpStatusCode.OK, beveragesResponse.StatusCode);
+        var beverages = await beveragesResponse.Content.ReadFromJsonAsync<BeverageResponse[]>();
+        Assert.NotNull(beverages);
+        Assert.Equal(4, beverages.Length);
+        Assert.Equal(0.800m, beverages.Single(item => item.Code == "coffee").HydrationFactor);
+
+        var waterSuggestionsResponse = await _client.GetAsync(
+            "/api/v1/hydration/suggestions?beverageCode=water");
+        Assert.Equal(HttpStatusCode.OK, waterSuggestionsResponse.StatusCode);
+        var waterSuggestions = await waterSuggestionsResponse.Content
+            .ReadFromJsonAsync<QuickAddSuggestionResponse[]>();
+        Assert.NotNull(waterSuggestions);
+        Assert.Equal(3, waterSuggestions.Length);
+        Assert.All(waterSuggestions, item => Assert.Equal("water", item.BeverageCode));
+
+        var entryId = hydration.Entries.Single().Id;
+        var updateOperationId = Guid.NewGuid();
+        var updateResponse = await _client.PatchAsJsonAsync(
+            $"/api/v1/hydration/entries/{entryId}",
+            new UpdateDrinkEntryRequest(500, "coffee", updateOperationId));
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        var updatedHydration = await updateResponse.Content.ReadFromJsonAsync<TodayHydrationResponse>();
+        Assert.NotNull(updatedHydration);
+        Assert.Equal(400, updatedHydration.ConsumedMl);
+        Assert.Equal("coffee", updatedHydration.Entries.Single().BeverageCode);
+        Assert.Equal(400, updatedHydration.Entries.Single().HydrationMl);
+        var duplicateUpdateResponse = await _client.PatchAsJsonAsync(
+            $"/api/v1/hydration/entries/{entryId}",
+            new UpdateDrinkEntryRequest(500, "coffee", updateOperationId));
+        Assert.Equal(HttpStatusCode.OK, duplicateUpdateResponse.StatusCode);
+
+        var suggestionsResponse = await _client.GetAsync(
+            "/api/v1/hydration/suggestions?beverageCode=coffee");
+        Assert.Equal(HttpStatusCode.OK, suggestionsResponse.StatusCode);
+        var suggestions = await suggestionsResponse.Content
+            .ReadFromJsonAsync<QuickAddSuggestionResponse[]>();
+        Assert.NotNull(suggestions);
+        Assert.Equal(new QuickAddSuggestionResponse("coffee", 500), suggestions.First());
+        Assert.Equal(3, suggestions.Length);
+        Assert.All(suggestions, item => Assert.Equal("coffee", item.BeverageCode));
+
+        var historyResponse = await _client.GetAsync("/api/v1/hydration/history?days=7");
+        Assert.Equal(HttpStatusCode.OK, historyResponse.StatusCode);
+        var history = await historyResponse.Content.ReadFromJsonAsync<HydrationHistoryResponse>();
+        Assert.NotNull(history);
+        Assert.NotEmpty(history.Days);
+        Assert.Equal(400, history.Days.First().ConsumedMl);
+
+        var deleteOperationId = Guid.NewGuid();
+        var deletePath = $"/api/v1/hydration/entries/{entryId}?clientOperationId={deleteOperationId}";
+        var deleteResponse = await _client.DeleteAsync(deletePath);
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+        var emptyHydration = await deleteResponse.Content.ReadFromJsonAsync<TodayHydrationResponse>();
+        Assert.NotNull(emptyHydration);
+        Assert.Equal(0, emptyHydration.ConsumedMl);
+        Assert.Empty(emptyHydration.Entries);
+        var duplicateDeleteResponse = await _client.DeleteAsync(deletePath);
+        Assert.Equal(HttpStatusCode.OK, duplicateDeleteResponse.StatusCode);
     }
 
     [Fact]

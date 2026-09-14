@@ -12,6 +12,8 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<UserProfile> Profiles => Set<UserProfile>();
     public DbSet<HydrationGoal> HydrationGoals => Set<HydrationGoal>();
     public DbSet<DrinkEntry> DrinkEntries => Set<DrinkEntry>();
+    public DbSet<Beverage> Beverages => Set<Beverage>();
+    public DbSet<HydrationOperation> HydrationOperations => Set<HydrationOperation>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -59,7 +61,37 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             entry.Property(item => item.UserId).HasMaxLength(450);
             entry.Property(item => item.TimeZone).HasMaxLength(50);
             entry.Property(item => item.Source).HasMaxLength(32);
+            entry.Property(item => item.BeverageCode).HasMaxLength(32);
             entry.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entry.HasOne<Beverage>()
+                .WithMany()
+                .HasForeignKey(item => item.BeverageCode)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<Beverage>(beverage =>
+        {
+            beverage.HasKey(item => item.Code);
+            beverage.Property(item => item.Code).HasMaxLength(32);
+            beverage.Property(item => item.HydrationFactor).HasPrecision(4, 3);
+            beverage.HasData(
+                new { Code = "water", HydrationFactor = 1.000m, SortOrder = 1, IsActive = true },
+                new { Code = "sparkling-water", HydrationFactor = 1.000m, SortOrder = 2, IsActive = true },
+                new { Code = "coffee", HydrationFactor = 0.800m, SortOrder = 3, IsActive = true },
+                new { Code = "tea", HydrationFactor = 0.900m, SortOrder = 4, IsActive = true });
+        });
+
+        builder.Entity<HydrationOperation>(operation =>
+        {
+            operation.HasKey(item => item.Id);
+            operation.HasIndex(item => new { item.UserId, item.ClientOperationId }).IsUnique();
+            operation.Property(item => item.UserId).HasMaxLength(450);
+            operation.Property(item => item.OperationType).HasMaxLength(16);
+            operation.Property(item => item.Payload).HasMaxLength(128);
+            operation.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(item => item.UserId)
                 .OnDelete(DeleteBehavior.Cascade);

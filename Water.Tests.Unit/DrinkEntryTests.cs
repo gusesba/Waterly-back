@@ -19,6 +19,8 @@ public sealed class DrinkEntryTests
 
         Assert.Equal(clientEntryId, entry.ClientEntryId);
         Assert.Equal(350, entry.VolumeMl);
+        Assert.Equal(350, entry.HydrationMl);
+        Assert.Equal("water", entry.BeverageCode);
         Assert.Equal(occurredAt.UtcDateTime, entry.OccurredAtUtc);
         Assert.Equal("manual", entry.Source);
     }
@@ -34,5 +36,23 @@ public sealed class DrinkEntryTests
             volumeMl,
             DateTimeOffset.UtcNow,
             "UTC"));
+    }
+
+
+    [Fact]
+    public void Entry_volume_can_be_updated()
+    {
+        var entry = new DrinkEntry(
+            "user-1",
+            Guid.NewGuid(),
+            250,
+            DateTimeOffset.UtcNow,
+            "UTC");
+
+        entry.Update(500, "coffee", 500);
+
+        Assert.Equal(500, entry.VolumeMl);
+        Assert.Equal("coffee", entry.BeverageCode);
+        Assert.Equal(500, entry.HydrationMl);
     }
 }
