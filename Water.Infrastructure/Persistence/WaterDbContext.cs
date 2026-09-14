@@ -11,6 +11,7 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
 {
     public DbSet<UserProfile> Profiles => Set<UserProfile>();
     public DbSet<HydrationGoal> HydrationGoals => Set<HydrationGoal>();
+    public DbSet<DrinkEntry> DrinkEntries => Set<DrinkEntry>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -45,6 +46,20 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             goal.HasIndex(item => new { item.UserId, item.EffectiveFrom }).IsUnique();
             goal.Property(item => item.UserId).HasMaxLength(450);
             goal.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<DrinkEntry>(entry =>
+        {
+            entry.HasKey(item => item.Id);
+            entry.HasIndex(item => new { item.UserId, item.ClientEntryId }).IsUnique();
+            entry.HasIndex(item => new { item.UserId, item.OccurredAtUtc });
+            entry.Property(item => item.UserId).HasMaxLength(450);
+            entry.Property(item => item.TimeZone).HasMaxLength(50);
+            entry.Property(item => item.Source).HasMaxLength(32);
+            entry.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(item => item.UserId)
                 .OnDelete(DeleteBehavior.Cascade);

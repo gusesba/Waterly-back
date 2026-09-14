@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Water.Application.Profiles;
+using Water.Application.Hydration;
+using Water.Infrastructure.Hydration;
 using Water.Infrastructure.Identity;
 using Water.Infrastructure.Persistence;
 using Water.Infrastructure.Profiles;
@@ -28,7 +30,11 @@ public static class DependencyInjection
             options.Password.RequireNonAlphanumeric = false;
             options.Password.RequireUppercase = false;
         }).AddEntityFrameworkStores<WaterDbContext>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IHydrationService, HydrationService>();
         services.AddScoped<IProfileService, ProfileService>();
+        services.AddHealthChecks()
+            .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 
         return services;
     }

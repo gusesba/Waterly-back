@@ -1,7 +1,9 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Water.Api.Features.Profiles;
+using Water.Api.Features.Hydration;
 using Water.Infrastructure;
 using Water.Infrastructure.Identity;
 
@@ -60,11 +62,19 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.MapHealthChecks("/health/live");
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
 app.MapGroup("/api/v1/auth")
     .RequireRateLimiting("auth")
     .MapIdentityApi<ApplicationUser>();
 app.MapProfileEndpoints();
+app.MapHydrationEndpoints();
 
 app.Run();
 

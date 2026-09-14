@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Water.Application.Profiles;
+using Water.Application.Hydration;
 
 namespace Water.Tests.Integration;
 
@@ -62,6 +63,28 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(2600, current.HydrationGoal?.DailyTargetMl);
         Assert.Equal("America/Sao_Paulo", current.HydrationGoal?.TimeZone);
         Assert.Equal(["energy", "habit"], current.Profile?.Goals);
+
+        var entryRequest = new AddDrinkEntryRequest(
+            Guid.NewGuid(),
+            350,
+            DateTimeOffset.UtcNow,
+            "America/Sao_Paulo");
+        var firstEntryResponse = await _client.PostAsJsonAsync(
+            "/api/v1/hydration/entries",
+            entryRequest);
+        var duplicateEntryResponse = await _client.PostAsJsonAsync(
+            "/api/v1/hydration/entries",
+            entryRequest);
+
+        Assert.Equal(HttpStatusCode.OK, firstEntryResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, duplicateEntryResponse.StatusCode);
+        var hydration = await duplicateEntryResponse.Content
+            .ReadFromJsonAsync<TodayHydrationResponse>();
+        Assert.NotNull(hydration);
+        Assert.Equal(350, hydration.ConsumedMl);
+        Assert.Equal(2600, hydration.DailyTargetMl);
+        Assert.Single(hydration.Entries);
+        Assert.Equal(entryRequest.ClientEntryId, hydration.Entries.Single().ClientEntryId);
     }
 
     [Fact]
@@ -69,6 +92,15 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     {
         using var client = factory.CreateClient();
         var response = await client.GetAsync("/api/v1/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Hydration_requires_authentication()
+    {
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync("/api/v1/hydration/today");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
