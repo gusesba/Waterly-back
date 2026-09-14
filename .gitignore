@@ -1,0 +1,61 @@
+# Build and publish output
+[Bb]in/
+[Oo]bj/
+[Aa]rtifacts/
+[Pp]ublish/
+out/
+msbuild.log
+msbuild.binlog
+
+# Test results and coverage
+TestResults/
+coverage/
+coverage.*
+*.coverage
+*.coveragexml
+*.trx
+*.testlog
+BenchmarkDotNet.Artifacts/
+
+# IDEs and user-specific files
+.vs/
+.vscode/
+.idea/
+.fleet/
+*.suo
+*.user
+*.rsuser
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# Local configuration and secrets
+appsettings.Local.json
+appsettings.*.local.json
+secrets.json
+.env
+.env.*
+!.env.example
+
+# NuGet and local tooling
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+.nuget/
+.packages/
+.tools/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.pid
+*.cache
+_ReSharper*/
+*.ReSharper
+
+# OS metadata
+.DS_Store
+Thumbs.db
