@@ -2,7 +2,7 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-+## Etapa 2D — Lembretes locais
+## Etapa 2E — Feedback visual e conclusão da beta individual
 
 Data: 2026-09-15
 
@@ -11,6 +11,23 @@ Data: 2026-09-15
 - Sem alterações funcionais nesta etapa.
 
 ### Frontend — `não commitado`
+
+- Barra e percentual de progresso animados após mudanças na hidratação.
+- Preferência de redução de movimento respeitada.
+- Mascote integrado aos estados sem registros, progresso em andamento e meta concluída.
+- Feedback háptico para criação, edição, exclusão e conclusão da meta.
+- Celebração exibida uma única vez ao cruzar a meta diária durante a sessão.
+- Regras puras e testes para estado do mascote e elegibilidade da celebração.
+
+## Etapa 2D — Lembretes locais
+
+Data: 2026-09-15
+
+### Backend — `f2e4eb4` (`2d`)
+
+- Sem alterações funcionais nesta etapa.
+
+### Frontend — `0e9777c` (`2d`)
 
 - Tela de configuração com ativação e até três horários diários.
 - Preferências versionadas e persistidas localmente por conta.
@@ -134,4 +151,3 @@ Ao concluir uma etapa que será commitada:
 3. informar o hash e a mensagem de cada commit assim que existirem;
 4. enquanto o commit ainda não existir, usar `não commitado` e substituir pelo hash posteriormente;
 5. descrever mudanças funcionais, migrations, contratos e testes relevantes, evitando uma simples lista de arquivos.
-
