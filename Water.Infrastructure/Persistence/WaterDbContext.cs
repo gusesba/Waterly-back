@@ -22,6 +22,7 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
     public DbSet<DropsLedgerEntry> DropsLedgerEntries => Set<DropsLedgerEntry>();
     public DbSet<PrestigeLedgerEntry> PrestigeLedgerEntries => Set<PrestigeLedgerEntry>();
+    public DbSet<PublicProfile> PublicProfiles => Set<PublicProfile>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -158,6 +159,19 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
 
         ConfigureLedger<DropsLedgerEntry>(builder);
         ConfigureLedger<PrestigeLedgerEntry>(builder);
+
+        builder.Entity<PublicProfile>(profile =>
+        {
+            profile.HasKey(item => item.Id);
+            profile.HasIndex(item => item.UserId).IsUnique();
+            profile.HasIndex(item => item.NormalizedUsername).IsUnique();
+            profile.Property(item => item.UserId).HasMaxLength(450);
+            profile.Property(item => item.Username).HasMaxLength(20);
+            profile.Property(item => item.NormalizedUsername).HasMaxLength(20);
+            profile.Property(item => item.DisplayName).HasMaxLength(40);
+            profile.Property(item => item.Bio).HasMaxLength(160);
+            profile.HasOne<ApplicationUser>().WithOne().HasForeignKey<PublicProfile>(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
     }
 
     private static void ConfigureLedger<TEntry>(ModelBuilder builder) where TEntry : class

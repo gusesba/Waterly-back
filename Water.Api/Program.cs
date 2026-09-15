@@ -77,6 +77,7 @@ app.MapGroup("/api/v1/auth")
     .RequireRateLimiting("auth")
     .MapIdentityApi<ApplicationUser>();
 app.MapProfileEndpoints();
+app.MapPublicProfileEndpoints();
 app.MapHydrationEndpoints();
 app.MapHabitEndpoints();
 app.MapAchievementEndpoints();

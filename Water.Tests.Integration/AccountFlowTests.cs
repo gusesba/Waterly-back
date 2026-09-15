@@ -285,6 +285,30 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     }
 
     [Fact]
+    public async Task Public_profile_can_be_created_without_exposing_physical_data()
+    {
+        var email = $"profile-{Guid.NewGuid():N}@example.com"; const string password = "waterly123";
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+        var tokens = await LoginAsync(email, password);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+        var response = await _client.PutAsJsonAsync("/api/v1/profile", new UpdatePublicProfileRequest("water_user", "Water User", "Olá"));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("weight", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("height", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("age", json, StringComparison.OrdinalIgnoreCase);
+        var profile = JsonSerializer.Deserialize<PublicProfileResponse>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.Equal("water_user", profile?.Username);
+    }
+
+    [Fact]
+    public async Task Public_profile_requires_authentication()
+    {
+        using var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/profile")).StatusCode);
+    }
+
+    [Fact]
     public async Task Streak_requires_authentication()
     {
         using var client = factory.CreateClient();

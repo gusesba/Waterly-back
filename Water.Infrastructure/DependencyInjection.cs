@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IAchievementService, AchievementService>();
         services.AddScoped<IProgressionService, ProgressionService>();
         services.AddScoped<IProfileService, ProfileService>();
+        services.AddScoped<IPublicProfileService, PublicProfileService>();
         services.AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 

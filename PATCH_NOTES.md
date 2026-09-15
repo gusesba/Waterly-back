@@ -2,11 +2,30 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 3C — Fundação de Drops e Prestige
+## Etapa 3D — Perfil público básico
 
 Data: 2026-09-15
 
 ### Backend — `não commitado`
+
+- Perfil público isolado dos dados físicos do onboarding.
+- Username normalizado e único, nome de exibição e biografia opcional.
+- Endpoints autenticados `GET` e `PUT /api/v1/profile`.
+- Validação de campos, conflito de username e migration de `PublicProfiles`.
+- Testes de autenticação e de ausência de idade, peso e altura no contrato público.
+
+### Frontend — `não commitado`
+
+- Tela Meu perfil para criar e editar username, nome e biografia.
+- Validação e normalização local do username, tratamento de conflito e aviso de privacidade.
+- Acesso pela área da conta na tela Hoje e textos em português e inglês.
+
+
+## Etapa 3C — Fundação de Drops e Prestige
+
+Data: 2026-09-15
+
+### Backend — `ef0914a` (`3c`)
 
 - Ledgers independentes, imutáveis e append-only para Drops e Prestige.
 - Saldos calculados pela soma dos lançamentos, sem estado de saldo mutável.
@@ -17,7 +36,7 @@ Data: 2026-09-15
 - Migration dos dois ledgers e dos valores de recompensa do catálogo.
 - Testes integrados de saldo, histórico, permanência, idempotência e autenticação.
 
-### Frontend — `não commitado`
+### Frontend — `f597930` (`3c`)
 
 - Tela de progressão com saldos separados de Drops e Prestige.
 - Histórico recente combinado e ordenado por data.
