@@ -2,11 +2,29 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 3F — Fechamento diário automático
+## Etapa 4A — Amizades e solicitações
 
 Data: 2026-09-15
 
 ### Backend — `não commitado`
+
+- Relação única por par de usuários com solicitações pendentes e amizades aceitas.
+- Busca limitada de perfis públicos sem exposição de e-mail ou dados físicos.
+- Endpoints autenticados para buscar pessoas, listar amigos e solicitações, enviar, aceitar, recusar, cancelar e remover.
+- Solicitações repetidas idempotentes, solicitações cruzadas aceitas automaticamente e autorização por participante.
+- Rate limiting social por endereço de origem, migration `AddFriendships` e testes unitários e de integração.
+
+### Frontend — `não commitado`
+
+- Tela Amigos com busca por username e listas de recebidas, enviadas e amizades.
+- Ações de adicionar, aceitar, recusar, cancelar e remover com confirmação e atualização do cache.
+- Acesso pela tela Hoje, estados de carregamento/erro/vazio e textos em português e inglês.
+
+## Etapa 3F — Fechamento diário automático
+
+Data: 2026-09-15
+
+### Backend — `b6a79be` (`3f`)
 
 - Worker periódico de fechamento diário com intervalo e tamanho de lote configuráveis.
 - Processamento pelo dia local de cada perfil, limitado a dias já encerrados.
@@ -14,7 +32,7 @@ Data: 2026-09-15
 - Escopo isolado por usuário, logs estruturados e reaproveitamento das regras autoritativas de streak e recompensas.
 - Migration `AddDailyClosureCheckpoint` e testes de avanço monotônico, fuso, checkpoint e reexecução idempotente.
 
-### Frontend — `não commitado`
+### Frontend — `73646bd` (`3f`)
 
 - Integração do `AppState` nativo com o foco do TanStack Query.
 - Streak, conquistas, progressão e loadout desatualizados são consultados novamente quando o aplicativo volta ao primeiro plano.

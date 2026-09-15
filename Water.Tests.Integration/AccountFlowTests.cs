@@ -12,6 +12,7 @@ using Water.Application.Habits;
 using Water.Application.Progression;
 using Water.Domain.Hydration;
 using Water.Application.Cosmetics;
+using Water.Application.Social;
 using Water.Infrastructure.Identity;
 using Water.Infrastructure.Persistence;
 
@@ -404,6 +405,73 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         var response = await client.GetAsync("/api/v1/habits/streak");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Friend_requests_are_private_authorized_and_idempotent()
+    {
+        const string password = "waterly123";
+        var aliceEmail = $"alice-{Guid.NewGuid():N}@example.com";
+        var bobEmail = $"bob-{Guid.NewGuid():N}@example.com";
+        var charlieEmail = $"charlie-{Guid.NewGuid():N}@example.com";
+        foreach (var email in new[] { aliceEmail, bobEmail, charlieEmail })
+            await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+        var alice = await LoginAsync(aliceEmail, password);
+        var bob = await LoginAsync(bobEmail, password);
+        var charlie = await LoginAsync(charlieEmail, password);
+
+        async Task SetProfile(string token, string username, string name)
+        {
+            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var response = await _client.PutAsJsonAsync("/api/v1/profile", new UpdatePublicProfileRequest(username, name, "Bio pública"));
+            response.EnsureSuccessStatusCode();
+        }
+        await SetProfile(alice.AccessToken, "alice_social", "Alice");
+        await SetProfile(bob.AccessToken, "bob_social", "Bob");
+        await SetProfile(charlie.AccessToken, "charlie_social", "Charlie");
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", alice.AccessToken);
+        var searchJson = await _client.GetStringAsync("/api/v1/profiles/search?query=bob");
+        Assert.Contains("bob_social", searchJson);
+        Assert.DoesNotContain("email", searchJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("weight", searchJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpStatusCode.Conflict, (await _client.PostAsJsonAsync(
+            "/api/v1/friends/requests", new CreateFriendRequest("alice_social"))).StatusCode);
+        var first = await (await _client.PostAsJsonAsync("/api/v1/friends/requests", new CreateFriendRequest("bob_social")))
+            .Content.ReadFromJsonAsync<FriendRequestResponse>();
+        var repeated = await (await _client.PostAsJsonAsync("/api/v1/friends/requests", new CreateFriendRequest("bob_social")))
+            .Content.ReadFromJsonAsync<FriendRequestResponse>();
+        Assert.Equal(first?.Id, repeated?.Id);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bob.AccessToken);
+        var crossed = await (await _client.PostAsJsonAsync("/api/v1/friends/requests", new CreateFriendRequest("alice_social")))
+            .Content.ReadFromJsonAsync<FriendRequestResponse>();
+        Assert.Equal("friends", crossed?.Direction);
+        Assert.Single((await _client.GetFromJsonAsync<SocialProfileResponse[]>("/api/v1/friends"))!);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", alice.AccessToken);
+        var pending = await (await _client.PostAsJsonAsync("/api/v1/friends/requests", new CreateFriendRequest("charlie_social")))
+            .Content.ReadFromJsonAsync<FriendRequestResponse>();
+        Assert.NotNull(pending);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bob.AccessToken);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.PutAsync($"/api/v1/friends/requests/{pending.Id}/accept", null)).StatusCode);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", charlie.AccessToken);
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.PutAsync($"/api/v1/friends/requests/{pending.Id}/accept", null)).StatusCode);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", alice.AccessToken);
+        var bobProfile = (await _client.GetFromJsonAsync<SocialProfileResponse[]>("/api/v1/friends"))!.Single(item => item.Username == "bob_social");
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/api/v1/friends/{bobProfile.UserId}")).StatusCode);
+        Assert.DoesNotContain((await _client.GetFromJsonAsync<SocialProfileResponse[]>("/api/v1/friends"))!, item => item.Username == "bob_social");
+    }
+
+    [Theory]
+    [InlineData("/api/v1/friends")]
+    [InlineData("/api/v1/friends/requests")]
+    [InlineData("/api/v1/profiles/search?query=test")]
+    public async Task Social_endpoints_require_authentication(string path)
+    {
+        using var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(path)).StatusCode);
     }
 
     private async Task<(string AccessToken, string RefreshToken)> LoginAsync(string email, string password)

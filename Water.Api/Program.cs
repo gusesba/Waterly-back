@@ -8,6 +8,7 @@ using Water.Api.Features.Habits;
 using Water.Api.Features.Achievements;
 using Water.Api.Features.Progression;
 using Water.Api.Features.Cosmetics;
+using Water.Api.Features.Social;
 using Water.Infrastructure;
 using Water.Infrastructure.Identity;
 
@@ -45,6 +46,15 @@ builder.Services.AddRateLimiter(options =>
         limiter.QueueLimit = 0;
         limiter.AutoReplenishment = true;
     });
+    options.AddPolicy("social", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -87,6 +97,7 @@ app.MapHabitEndpoints();
 app.MapAchievementEndpoints();
 app.MapProgressionEndpoints();
 app.MapCosmeticEndpoints();
+app.MapFriendEndpoints();
 
 app.Run();
 

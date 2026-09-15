@@ -5,6 +5,7 @@ using Water.Domain.Habits;
 using Water.Domain.Profiles;
 using Water.Domain.Progression;
 using Water.Domain.Cosmetics;
+using Water.Domain.Social;
 using Water.Infrastructure.Identity;
 
 namespace Water.Infrastructure.Persistence;
@@ -28,6 +29,7 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<UserCosmetic> UserCosmetics => Set<UserCosmetic>();
     public DbSet<CharacterLoadout> CharacterLoadouts => Set<CharacterLoadout>();
     public DbSet<DailyClosureCheckpoint> DailyClosureCheckpoints => Set<DailyClosureCheckpoint>();
+    public DbSet<Friendship> Friendships => Set<Friendship>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -187,6 +189,19 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             profile.Property(item => item.DisplayName).HasMaxLength(40);
             profile.Property(item => item.Bio).HasMaxLength(160);
             profile.HasOne<ApplicationUser>().WithOne().HasForeignKey<PublicProfile>(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Friendship>(friendship =>
+        {
+            friendship.HasKey(item => item.Id);
+            friendship.HasIndex(item => new { item.UserLowId, item.UserHighId }).IsUnique();
+            friendship.Property(item => item.UserLowId).HasMaxLength(450);
+            friendship.Property(item => item.UserHighId).HasMaxLength(450);
+            friendship.Property(item => item.RequestedByUserId).HasMaxLength(450);
+            friendship.Ignore(item => item.IsAccepted);
+            friendship.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserLowId).OnDelete(DeleteBehavior.Restrict);
+            friendship.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserHighId).OnDelete(DeleteBehavior.Restrict);
+            friendship.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.RequestedByUserId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<CosmeticItem>(cosmetic =>
