@@ -2,11 +2,34 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 3B — Conquistas simples
+## Etapa 3C — Fundação de Drops e Prestige
 
 Data: 2026-09-15
 
 ### Backend — `não commitado`
+
+- Ledgers independentes, imutáveis e append-only para Drops e Prestige.
+- Saldos calculados pela soma dos lançamentos, sem estado de saldo mutável.
+- Recompensas versionadas por conquista: primeira meta, streak de 3 dias e streak de 7 dias.
+- Chaves idempotentes únicas por usuário impedem concessões duplicadas.
+- Desbloqueio e recompensas novas persistidos atomicamente, com retrocompatibilidade para conquistas já desbloqueadas.
+- Endpoints autenticados `GET /api/v1/wallet` e `GET /api/v1/prestige` com saldo e histórico recente.
+- Migration dos dois ledgers e dos valores de recompensa do catálogo.
+- Testes integrados de saldo, histórico, permanência, idempotência e autenticação.
+
+### Frontend — `não commitado`
+
+- Tela de progressão com saldos separados de Drops e Prestige.
+- Histórico recente combinado e ordenado por data.
+- Explicação da diferença entre moeda de personalização e progressão real.
+- Acesso pela tela de conquistas e invalidação após hidratação ou sincronização offline.
+- Textos disponíveis em português e inglês e teste da composição do histórico.
+
+## Etapa 3B — Conquistas simples
+
+Data: 2026-09-15
+
+### Backend — `b096733` (`3b`)
 
 - Catálogo versionado com conquistas de primeira meta e sequências de 3 e 7 dias.
 - Desbloqueios permanentes e idempotentes, com unicidade por usuário e conquista.
@@ -15,7 +38,7 @@ Data: 2026-09-15
 - Migration para `AchievementDefinitions` e `UserAchievements` e carga do catálogo inicial.
 - Testes unitários dos critérios e testes integrados de autenticação, idempotência e permanência após exclusão.
 
-### Frontend — `não commitado`
+### Frontend — `8803669` (`3b`)
 
 - Tela de conquistas com progresso, estados bloqueado/desbloqueado e data da conquista.
 - Card de streak transformado em acesso para a nova tela.
