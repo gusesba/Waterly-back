@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Water.Domain.Hydration;
 using Water.Domain.Habits;
 using Water.Domain.Profiles;
+using Water.Domain.Progression;
 using Water.Infrastructure.Identity;
 
 namespace Water.Infrastructure.Persistence;
@@ -19,6 +20,8 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<UserStreak> UserStreaks => Set<UserStreak>();
     public DbSet<AchievementDefinition> AchievementDefinitions => Set<AchievementDefinition>();
     public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
+    public DbSet<DropsLedgerEntry> DropsLedgerEntries => Set<DropsLedgerEntry>();
+    public DbSet<PrestigeLedgerEntry> PrestigeLedgerEntries => Set<PrestigeLedgerEntry>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -132,9 +135,9 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             achievement.Property(item => item.Code).HasMaxLength(32);
             achievement.Property(item => item.Criterion).HasMaxLength(32);
             achievement.HasData(
-                new { Code = "first-goal", Criterion = "completed-days", Requirement = 1, SortOrder = 1, RuleVersion = 1 },
-                new { Code = "streak-3", Criterion = "longest-streak", Requirement = 3, SortOrder = 2, RuleVersion = 1 },
-                new { Code = "streak-7", Criterion = "longest-streak", Requirement = 7, SortOrder = 3, RuleVersion = 1 });
+                new { Code = "first-goal", Criterion = "completed-days", Requirement = 1, SortOrder = 1, RuleVersion = 1, DropsReward = 25, PrestigeReward = 10 },
+                new { Code = "streak-3", Criterion = "longest-streak", Requirement = 3, SortOrder = 2, RuleVersion = 1, DropsReward = 50, PrestigeReward = 25 },
+                new { Code = "streak-7", Criterion = "longest-streak", Requirement = 7, SortOrder = 3, RuleVersion = 1, DropsReward = 100, PrestigeReward = 50 });
         });
 
         builder.Entity<UserAchievement>(achievement =>
@@ -152,5 +155,24 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
                 .HasForeignKey(item => item.AchievementCode)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+
+        ConfigureLedger<DropsLedgerEntry>(builder);
+        ConfigureLedger<PrestigeLedgerEntry>(builder);
+    }
+
+    private static void ConfigureLedger<TEntry>(ModelBuilder builder) where TEntry : class
+    {
+        var ledger = builder.Entity<TEntry>();
+        ledger.HasKey("Id");
+        ledger.HasIndex("UserId", "IdempotencyKey").IsUnique();
+        ledger.Property("UserId").HasMaxLength(450);
+        ledger.Property("EntryType").HasMaxLength(32);
+        ledger.Property("ReferenceType").HasMaxLength(32);
+        ledger.Property("ReferenceId").HasMaxLength(64);
+        ledger.Property("IdempotencyKey").HasMaxLength(128);
+        ledger.HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey("UserId")
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

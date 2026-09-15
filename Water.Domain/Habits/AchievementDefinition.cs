@@ -11,4 +11,6 @@ public sealed class AchievementDefinition
     public int Requirement { get; private set; }
     public int SortOrder { get; private set; }
     public int RuleVersion { get; private set; }
+    public int DropsReward { get; private set; }
+    public int PrestigeReward { get; private set; }
 }

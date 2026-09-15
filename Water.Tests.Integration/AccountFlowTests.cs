@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Water.Application.Profiles;
 using Water.Application.Hydration;
 using Water.Application.Habits;
+using Water.Application.Progression;
 using Water.Domain.Hydration;
 using Water.Infrastructure.Identity;
 using Water.Infrastructure.Persistence;
@@ -245,12 +246,22 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         var firstGoal = firstRead.Single(item => item.Code == "first-goal");
         Assert.True(firstGoal.IsUnlocked);
         Assert.Equal(firstGoal.UnlockedAt, secondRead.Single(item => item.Code == "first-goal").UnlockedAt);
+        var drops = await _client.GetFromJsonAsync<ProgressionBalanceResponse>("/api/v1/wallet");
+        var prestige = await _client.GetFromJsonAsync<ProgressionBalanceResponse>("/api/v1/prestige");
+        Assert.NotNull(drops);
+        Assert.NotNull(prestige);
+        Assert.Equal(25, drops.Balance);
+        Assert.Equal(10, prestige.Balance);
+        Assert.Single(drops.Entries);
+        Assert.Single(prestige.Entries);
 
         var deletePath = $"/api/v1/hydration/entries/{hydration.Entries.Single().Id}?clientOperationId={Guid.NewGuid()}";
         Assert.Equal(HttpStatusCode.OK, (await _client.DeleteAsync(deletePath)).StatusCode);
         var afterDelete = await _client.GetFromJsonAsync<AchievementResponse[]>("/api/v1/achievements");
         Assert.NotNull(afterDelete);
         Assert.True(afterDelete.Single(item => item.Code == "first-goal").IsUnlocked);
+        Assert.Equal(25, (await _client.GetFromJsonAsync<ProgressionBalanceResponse>("/api/v1/wallet"))?.Balance);
+        Assert.Equal(10, (await _client.GetFromJsonAsync<ProgressionBalanceResponse>("/api/v1/prestige"))?.Balance);
     }
 
     [Fact]
@@ -258,6 +269,17 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     {
         using var client = factory.CreateClient();
         var response = await client.GetAsync("/api/v1/achievements");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/api/v1/wallet")]
+    [InlineData("/api/v1/prestige")]
+    public async Task Progression_requires_authentication(string path)
+    {
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync(path);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }

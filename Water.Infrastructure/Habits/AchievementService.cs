@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Water.Application.Habits;
 using Water.Domain.Habits;
+using Water.Domain.Progression;
 using Water.Infrastructure.Persistence;
 
 namespace Water.Infrastructure.Habits;
@@ -25,6 +26,16 @@ public sealed class AchievementService(
         var unlocked = await dbContext.UserAchievements
             .Where(item => item.UserId == userId)
             .ToDictionaryAsync(item => item.AchievementCode, cancellationToken);
+        var dropsKeys = (await dbContext.DropsLedgerEntries
+            .AsNoTracking()
+            .Where(item => item.UserId == userId)
+            .Select(item => item.IdempotencyKey)
+            .ToArrayAsync(cancellationToken)).ToHashSet();
+        var prestigeKeys = (await dbContext.PrestigeLedgerEntries
+            .AsNoTracking()
+            .Where(item => item.UserId == userId)
+            .Select(item => item.IdempotencyKey)
+            .ToArrayAsync(cancellationToken)).ToHashSet();
 
         foreach (var definition in definitions)
         {
@@ -39,6 +50,33 @@ public sealed class AchievementService(
                     definition.RuleVersion);
                 dbContext.UserAchievements.Add(achievement);
                 unlocked.Add(definition.Code, achievement);
+            }
+
+            if (!unlocked.TryGetValue(definition.Code, out var unlockedAchievement)) continue;
+            var rewardKey = $"achievement:{definition.Code}:v{definition.RuleVersion}";
+            if (definition.DropsReward > 0 && dropsKeys.Add(rewardKey))
+            {
+                dbContext.DropsLedgerEntries.Add(new DropsLedgerEntry(
+                    userId,
+                    definition.DropsReward,
+                    "achievement-reward",
+                    "achievement",
+                    definition.Code,
+                    rewardKey,
+                    definition.RuleVersion,
+                    unlockedAchievement.UnlockedAt));
+            }
+            if (definition.PrestigeReward > 0 && prestigeKeys.Add(rewardKey))
+            {
+                dbContext.PrestigeLedgerEntries.Add(new PrestigeLedgerEntry(
+                    userId,
+                    definition.PrestigeReward,
+                    "achievement-reward",
+                    "achievement",
+                    definition.Code,
+                    rewardKey,
+                    definition.RuleVersion,
+                    unlockedAchievement.UnlockedAt));
             }
         }
 

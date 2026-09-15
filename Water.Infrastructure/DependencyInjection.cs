@@ -10,6 +10,8 @@ using Water.Infrastructure.Hydration;
 using Water.Infrastructure.Identity;
 using Water.Infrastructure.Persistence;
 using Water.Infrastructure.Profiles;
+using Water.Application.Progression;
+using Water.Infrastructure.Progression;
 
 namespace Water.Infrastructure;
 
@@ -36,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<IHydrationService, HydrationService>();
         services.AddScoped<IHabitService, HabitService>();
         services.AddScoped<IAchievementService, AchievementService>();
+        services.AddScoped<IProgressionService, ProgressionService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
