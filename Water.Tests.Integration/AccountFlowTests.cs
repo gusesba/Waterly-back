@@ -222,6 +222,47 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     }
 
     [Fact]
+    public async Task Achievement_is_unlocked_once_and_is_not_revoked()
+    {
+        var email = $"achievement-{Guid.NewGuid():N}@example.com";
+        const string password = "waterly123";
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+        var tokens = await LoginAsync(email, password);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+        await _client.PutAsJsonAsync("/api/v1/me/onboarding", new CompleteOnboardingRequest(
+            28, 178, 74.5m, 500, ["habit"], "UTC"));
+
+        var entryResponse = await _client.PostAsJsonAsync(
+            "/api/v1/hydration/entries",
+            new AddDrinkEntryRequest(Guid.NewGuid(), 500, DateTimeOffset.UtcNow, "UTC"));
+        var hydration = await entryResponse.Content.ReadFromJsonAsync<TodayHydrationResponse>();
+        Assert.NotNull(hydration);
+
+        var firstRead = await _client.GetFromJsonAsync<AchievementResponse[]>("/api/v1/achievements");
+        var secondRead = await _client.GetFromJsonAsync<AchievementResponse[]>("/api/v1/achievements");
+        Assert.NotNull(firstRead);
+        Assert.NotNull(secondRead);
+        var firstGoal = firstRead.Single(item => item.Code == "first-goal");
+        Assert.True(firstGoal.IsUnlocked);
+        Assert.Equal(firstGoal.UnlockedAt, secondRead.Single(item => item.Code == "first-goal").UnlockedAt);
+
+        var deletePath = $"/api/v1/hydration/entries/{hydration.Entries.Single().Id}?clientOperationId={Guid.NewGuid()}";
+        Assert.Equal(HttpStatusCode.OK, (await _client.DeleteAsync(deletePath)).StatusCode);
+        var afterDelete = await _client.GetFromJsonAsync<AchievementResponse[]>("/api/v1/achievements");
+        Assert.NotNull(afterDelete);
+        Assert.True(afterDelete.Single(item => item.Code == "first-goal").IsUnlocked);
+    }
+
+    [Fact]
+    public async Task Achievements_require_authentication()
+    {
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync("/api/v1/achievements");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Streak_requires_authentication()
     {
         using var client = factory.CreateClient();

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Water.Api.Features.Profiles;
 using Water.Api.Features.Hydration;
 using Water.Api.Features.Habits;
+using Water.Api.Features.Achievements;
 using Water.Infrastructure;
 using Water.Infrastructure.Identity;
 
@@ -77,6 +78,7 @@ app.MapGroup("/api/v1/auth")
 app.MapProfileEndpoints();
 app.MapHydrationEndpoints();
 app.MapHabitEndpoints();
+app.MapAchievementEndpoints();
 
 app.Run();
 

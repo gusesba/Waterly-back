@@ -17,6 +17,8 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<HydrationOperation> HydrationOperations => Set<HydrationOperation>();
     public DbSet<DailyHydration> DailyHydrations => Set<DailyHydration>();
     public DbSet<UserStreak> UserStreaks => Set<UserStreak>();
+    public DbSet<AchievementDefinition> AchievementDefinitions => Set<AchievementDefinition>();
+    public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -122,6 +124,33 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
                 .WithMany()
                 .HasForeignKey(item => item.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AchievementDefinition>(achievement =>
+        {
+            achievement.HasKey(item => item.Code);
+            achievement.Property(item => item.Code).HasMaxLength(32);
+            achievement.Property(item => item.Criterion).HasMaxLength(32);
+            achievement.HasData(
+                new { Code = "first-goal", Criterion = "completed-days", Requirement = 1, SortOrder = 1, RuleVersion = 1 },
+                new { Code = "streak-3", Criterion = "longest-streak", Requirement = 3, SortOrder = 2, RuleVersion = 1 },
+                new { Code = "streak-7", Criterion = "longest-streak", Requirement = 7, SortOrder = 3, RuleVersion = 1 });
+        });
+
+        builder.Entity<UserAchievement>(achievement =>
+        {
+            achievement.HasKey(item => item.Id);
+            achievement.HasIndex(item => new { item.UserId, item.AchievementCode }).IsUnique();
+            achievement.Property(item => item.UserId).HasMaxLength(450);
+            achievement.Property(item => item.AchievementCode).HasMaxLength(32);
+            achievement.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            achievement.HasOne<AchievementDefinition>()
+                .WithMany()
+                .HasForeignKey(item => item.AchievementCode)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

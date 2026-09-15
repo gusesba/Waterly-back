@@ -2,11 +2,32 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 3A — Agregado diário e sequência de hidratação
+## Etapa 3B — Conquistas simples
 
 Data: 2026-09-15
 
 ### Backend — `não commitado`
+
+- Catálogo versionado com conquistas de primeira meta e sequências de 3 e 7 dias.
+- Desbloqueios permanentes e idempotentes, com unicidade por usuário e conquista.
+- Avaliação baseada nos agregados diários e no maior streak autoritativo.
+- Endpoint autenticado `GET /api/v1/achievements` com progresso, requisito e data de desbloqueio.
+- Migration para `AchievementDefinitions` e `UserAchievements` e carga do catálogo inicial.
+- Testes unitários dos critérios e testes integrados de autenticação, idempotência e permanência após exclusão.
+
+### Frontend — `não commitado`
+
+- Tela de conquistas com progresso, estados bloqueado/desbloqueado e data da conquista.
+- Card de streak transformado em acesso para a nova tela.
+- Conquistas desbloqueadas aparecem primeiro; as restantes são ordenadas por proximidade da conclusão.
+- Invalidação após alterações online e sincronização da fila offline.
+- Textos e descrições disponíveis em português e inglês.
+
+## Etapa 3A — Agregado diário e sequência de hidratação
+
+Data: 2026-09-15
+
+### Backend — `12447ce` (`3a`)
 
 - Projeções persistidas e reconstruíveis de hidratação diária e sequência do usuário.
 - Cálculo versionado que preserva a sequência enquanto o dia atual ainda está aberto e limita a conclusão a 100% da meta.
@@ -16,7 +37,7 @@ Data: 2026-09-15
 - ADR das regras de fuso, mudança de fuso, meta histórica e reprocessamento idempotente.
 - Testes unitários do cálculo e teste integrado do ciclo de criação e exclusão.
 
-### Frontend — `não commitado`
+### Frontend — `a175896` (`3a`)
 
 - Card compacto na tela Hoje com sequência atual, recorde e estado da meta do dia.
 - Invalidação da sequência após alterações online e depois da sincronização da fila offline.

@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IHydrationService, HydrationService>();
         services.AddScoped<IHabitService, HabitService>();
+        services.AddScoped<IAchievementService, AchievementService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
