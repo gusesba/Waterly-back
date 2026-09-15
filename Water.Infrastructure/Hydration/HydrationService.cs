@@ -100,7 +100,19 @@ public sealed class HydrationService(
             CalculateHydrationMl(request.VolumeMl, beverage.HydrationFactor));
         dbContext.HydrationOperations.Add(new HydrationOperation(
             userId, request.ClientOperationId, entryId, "update", payload));
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            dbContext.ChangeTracker.Clear();
+            if (!await IsProcessedOperationAsync(
+                userId, request.ClientOperationId, entryId, "update", payload, cancellationToken))
+            {
+                throw;
+            }
+        }
 
         var context = await GetTodayContextAsync(userId, cancellationToken);
         return await BuildTodayAsync(userId, context, cancellationToken);
@@ -127,7 +139,19 @@ public sealed class HydrationService(
         dbContext.DrinkEntries.Remove(entry);
         dbContext.HydrationOperations.Add(new HydrationOperation(
             userId, clientOperationId, entryId, "delete", string.Empty));
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            dbContext.ChangeTracker.Clear();
+            if (!await IsProcessedOperationAsync(
+                userId, clientOperationId, entryId, "delete", string.Empty, cancellationToken))
+            {
+                throw;
+            }
+        }
 
         var context = await GetTodayContextAsync(userId, cancellationToken);
         return await BuildTodayAsync(userId, context, cancellationToken);
