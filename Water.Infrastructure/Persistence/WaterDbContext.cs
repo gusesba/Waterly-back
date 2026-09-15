@@ -27,6 +27,7 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<CosmeticItem> CosmeticItems => Set<CosmeticItem>();
     public DbSet<UserCosmetic> UserCosmetics => Set<UserCosmetic>();
     public DbSet<CharacterLoadout> CharacterLoadouts => Set<CharacterLoadout>();
+    public DbSet<DailyClosureCheckpoint> DailyClosureCheckpoints => Set<DailyClosureCheckpoint>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -131,6 +132,17 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             streak.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<DailyClosureCheckpoint>(checkpoint =>
+        {
+            checkpoint.HasKey(item => item.Id);
+            checkpoint.HasIndex(item => item.UserId).IsUnique();
+            checkpoint.Property(item => item.UserId).HasMaxLength(450);
+            checkpoint.HasOne<ApplicationUser>()
+                .WithOne()
+                .HasForeignKey<DailyClosureCheckpoint>(item => item.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

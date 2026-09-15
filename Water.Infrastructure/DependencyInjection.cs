@@ -44,6 +44,13 @@ public static class DependencyInjection
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IPublicProfileService, PublicProfileService>();
         services.AddScoped<ICosmeticService, CosmeticService>();
+        services.AddScoped<IDailyClosureService, DailyClosureService>();
+        services.AddOptions<DailyClosureOptions>()
+            .Bind(configuration.GetSection(DailyClosureOptions.SectionName))
+            .Validate(options => options.Interval > TimeSpan.Zero, "DailyClosure interval must be positive.")
+            .Validate(options => options.BatchSize is > 0 and <= 1000, "DailyClosure batch size must be between 1 and 1000.")
+            .ValidateOnStart();
+        services.AddHostedService<DailyClosureWorker>();
         services.AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 

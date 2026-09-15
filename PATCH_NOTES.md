@@ -2,11 +2,28 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 3E — Personagem e loadout inicial
+## Etapa 3F — Fechamento diário automático
 
 Data: 2026-09-15
 
 ### Backend — `não commitado`
+
+- Worker periódico de fechamento diário com intervalo e tamanho de lote configuráveis.
+- Processamento pelo dia local de cada perfil, limitado a dias já encerrados.
+- Checkpoint persistente por usuário para retomada segura depois de reinícios e falhas.
+- Escopo isolado por usuário, logs estruturados e reaproveitamento das regras autoritativas de streak e recompensas.
+- Migration `AddDailyClosureCheckpoint` e testes de avanço monotônico, fuso, checkpoint e reexecução idempotente.
+
+### Frontend — `não commitado`
+
+- Integração do `AppState` nativo com o foco do TanStack Query.
+- Streak, conquistas, progressão e loadout desatualizados são consultados novamente quando o aplicativo volta ao primeiro plano.
+
+## Etapa 3E — Personagem e loadout inicial
+
+Data: 2026-09-15
+
+### Backend — `20dee7a` (`3e`)
 
 - Catálogo de auras ligado às conquistas, posse permanente e loadout persistido por usuário.
 - Concessão automática e idempotente das auras Natural, Oceano, Pôr do sol e Estelar.
@@ -14,7 +31,7 @@ Data: 2026-09-15
 - Equipamento restrito a itens possuídos, sem consumo de Drops ou Prestige.
 - Migration `AddCharacterCosmetics` e testes unitários, de autenticação, bloqueio, concessão, idempotência e saldo.
 
-### Frontend — `não commitado`
+### Frontend — `d843bf5` (`3e`)
 
 - Tela Meu personagem com prévia, catálogo de auras, estados bloqueado/disponível/em uso e troca persistida.
 - Aura selecionada aplicada ao mascote compartilhado na tela Hoje e na prévia do perfil.

@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Water.Application.Profiles;
 using Water.Application.Hydration;
@@ -357,6 +358,43 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     {
         using var client = factory.CreateClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(path)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Daily_closure_uses_local_yesterday_and_is_idempotent()
+    {
+        var email = $"closure-{Guid.NewGuid():N}@example.com";
+        const string password = "waterly123";
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+        var tokens = await LoginAsync(email, password);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+        await _client.PutAsJsonAsync("/api/v1/me/onboarding", new CompleteOnboardingRequest(
+            28, 178, 74.5m, 500, ["habit"], "America/Sao_Paulo"));
+        await _client.PostAsJsonAsync("/api/v1/hydration/entries", new AddDrinkEntryRequest(
+            Guid.NewGuid(), 500, new DateTimeOffset(2026, 9, 15, 15, 0, 0, TimeSpan.Zero), "America/Sao_Paulo"));
+
+        string userId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            userId = await dbContext.Users.Where(item => item.Email == email).Select(item => item.Id).SingleAsync();
+            var service = scope.ServiceProvider.GetRequiredService<IDailyClosureService>();
+            var candidate = (await service.GetDueAsync(1000, CancellationToken.None))
+                .Single(item => item.UserId == userId);
+            Assert.Equal(new DateOnly(2026, 9, 14), candidate.CloseThrough);
+            await service.CloseAsync(candidate, CancellationToken.None);
+        }
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<IDailyClosureService>();
+            await service.CloseAsync(new DailyClosureCandidate(userId, new DateOnly(2026, 9, 14)), CancellationToken.None);
+            var dbContext = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            Assert.Equal(1, await dbContext.DailyClosureCheckpoints.CountAsync(item => item.UserId == userId));
+            Assert.Equal(1, await dbContext.UserAchievements.CountAsync(item => item.UserId == userId));
+            Assert.Equal(1, await dbContext.DropsLedgerEntries.CountAsync(item => item.UserId == userId));
+            Assert.Equal(1, await dbContext.PrestigeLedgerEntries.CountAsync(item => item.UserId == userId));
+        }
     }
 
     [Fact]
