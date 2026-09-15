@@ -10,6 +10,7 @@ using Water.Application.Hydration;
 using Water.Application.Habits;
 using Water.Application.Progression;
 using Water.Domain.Hydration;
+using Water.Application.Cosmetics;
 using Water.Infrastructure.Identity;
 using Water.Infrastructure.Persistence;
 
@@ -306,6 +307,56 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     {
         using var client = factory.CreateClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/profile")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Achievement_unlocks_permanent_aura_that_can_be_equipped_without_spending_currency()
+    {
+        var email = $"cosmetics-{Guid.NewGuid():N}@example.com";
+        const string password = "waterly123";
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+        var tokens = await LoginAsync(email, password);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+        await _client.PutAsJsonAsync("/api/v1/me/onboarding", new CompleteOnboardingRequest(
+            28, 178, 74.5m, 500, ["habit"], "UTC"));
+
+        var initial = await _client.GetFromJsonAsync<CharacterLoadoutResponse>("/api/v1/profile/loadout");
+        Assert.NotNull(initial);
+        Assert.Equal("axolotl-pink", initial.CharacterCode);
+        Assert.Equal("natural", initial.AuraCode);
+        Assert.True(initial.Auras.Single(item => item.Code == "natural").IsOwned);
+        Assert.False(initial.Auras.Single(item => item.Code == "ocean").IsOwned);
+        Assert.Equal(HttpStatusCode.Conflict, (await _client.PutAsJsonAsync(
+            "/api/v1/profile/loadout", new UpdateCharacterLoadoutRequest("ocean"))).StatusCode);
+
+        await _client.PostAsJsonAsync("/api/v1/hydration/entries",
+            new AddDrinkEntryRequest(Guid.NewGuid(), 500, DateTimeOffset.UtcNow, "UTC"));
+        var unlocked = await _client.GetFromJsonAsync<CharacterLoadoutResponse>("/api/v1/cosmetics");
+        Assert.NotNull(unlocked);
+        Assert.True(unlocked.Auras.Single(item => item.Code == "ocean").IsOwned);
+        var dropsBeforeEquip = await _client.GetFromJsonAsync<ProgressionBalanceResponse>("/api/v1/wallet");
+        var prestigeBeforeEquip = await _client.GetFromJsonAsync<ProgressionBalanceResponse>("/api/v1/prestige");
+
+        var equipResponse = await _client.PutAsJsonAsync(
+            "/api/v1/profile/loadout", new UpdateCharacterLoadoutRequest("ocean"));
+        Assert.Equal(HttpStatusCode.OK, equipResponse.StatusCode);
+        var equipped = await equipResponse.Content.ReadFromJsonAsync<CharacterLoadoutResponse>();
+        Assert.Equal("ocean", equipped?.AuraCode);
+        Assert.Equal(dropsBeforeEquip?.Balance, (await _client.GetFromJsonAsync<ProgressionBalanceResponse>("/api/v1/wallet"))?.Balance);
+        Assert.Equal(prestigeBeforeEquip?.Balance, (await _client.GetFromJsonAsync<ProgressionBalanceResponse>("/api/v1/prestige"))?.Balance);
+
+        var repeated = await _client.GetFromJsonAsync<CharacterLoadoutResponse>("/api/v1/cosmetics");
+        Assert.Equal(4, repeated?.Auras.Count);
+        Assert.Equal(2, repeated?.Auras.Count(item => item.IsOwned));
+    }
+
+    [Theory]
+    [InlineData("/api/v1/cosmetics")]
+    [InlineData("/api/v1/profile/loadout")]
+    public async Task Cosmetics_require_authentication(string path)
+    {
+        using var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(path)).StatusCode);
     }
 
     [Fact]

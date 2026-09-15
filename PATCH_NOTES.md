@@ -2,11 +2,29 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 3D — Perfil público básico
+## Etapa 3E — Personagem e loadout inicial
 
 Data: 2026-09-15
 
 ### Backend — `não commitado`
+
+- Catálogo de auras ligado às conquistas, posse permanente e loadout persistido por usuário.
+- Concessão automática e idempotente das auras Natural, Oceano, Pôr do sol e Estelar.
+- Endpoints autenticados `GET /api/v1/cosmetics`, `GET /api/v1/profile/loadout` e `PUT /api/v1/profile/loadout`.
+- Equipamento restrito a itens possuídos, sem consumo de Drops ou Prestige.
+- Migration `AddCharacterCosmetics` e testes unitários, de autenticação, bloqueio, concessão, idempotência e saldo.
+
+### Frontend — `não commitado`
+
+- Tela Meu personagem com prévia, catálogo de auras, estados bloqueado/disponível/em uso e troca persistida.
+- Aura selecionada aplicada ao mascote compartilhado na tela Hoje e na prévia do perfil.
+- Textos completos em português e inglês e teste da regra de seleção.
+
+## Etapa 3D — Perfil público básico
+
+Data: 2026-09-15
+
+### Backend — `b6a126e` (`3d`)
 
 - Perfil público isolado dos dados físicos do onboarding.
 - Username normalizado e único, nome de exibição e biografia opcional.
@@ -14,7 +32,7 @@ Data: 2026-09-15
 - Validação de campos, conflito de username e migration de `PublicProfiles`.
 - Testes de autenticação e de ausência de idade, peso e altura no contrato público.
 
-### Frontend — `não commitado`
+### Frontend — `ee35037` (`3d`)
 
 - Tela Meu perfil para criar e editar username, nome e biografia.
 - Validação e normalização local do username, tratamento de conflito e aviso de privacidade.

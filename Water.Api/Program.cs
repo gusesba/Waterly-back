@@ -7,6 +7,7 @@ using Water.Api.Features.Hydration;
 using Water.Api.Features.Habits;
 using Water.Api.Features.Achievements;
 using Water.Api.Features.Progression;
+using Water.Api.Features.Cosmetics;
 using Water.Infrastructure;
 using Water.Infrastructure.Identity;
 
@@ -73,15 +74,19 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready")
 });
-app.MapGroup("/api/v1/auth")
-    .RequireRateLimiting("auth")
-    .MapIdentityApi<ApplicationUser>();
+var authEndpoints = app.MapGroup("/api/v1/auth");
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    authEndpoints.RequireRateLimiting("auth");
+}
+authEndpoints.MapIdentityApi<ApplicationUser>();
 app.MapProfileEndpoints();
 app.MapPublicProfileEndpoints();
 app.MapHydrationEndpoints();
 app.MapHabitEndpoints();
 app.MapAchievementEndpoints();
 app.MapProgressionEndpoints();
+app.MapCosmeticEndpoints();
 
 app.Run();
 

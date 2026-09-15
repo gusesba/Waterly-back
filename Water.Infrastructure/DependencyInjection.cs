@@ -12,6 +12,8 @@ using Water.Infrastructure.Persistence;
 using Water.Infrastructure.Profiles;
 using Water.Application.Progression;
 using Water.Infrastructure.Progression;
+using Water.Application.Cosmetics;
+using Water.Infrastructure.Cosmetics;
 
 namespace Water.Infrastructure;
 
@@ -41,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IProgressionService, ProgressionService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IPublicProfileService, PublicProfileService>();
+        services.AddScoped<ICosmeticService, CosmeticService>();
         services.AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 

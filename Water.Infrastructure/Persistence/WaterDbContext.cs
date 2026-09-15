@@ -4,6 +4,7 @@ using Water.Domain.Hydration;
 using Water.Domain.Habits;
 using Water.Domain.Profiles;
 using Water.Domain.Progression;
+using Water.Domain.Cosmetics;
 using Water.Infrastructure.Identity;
 
 namespace Water.Infrastructure.Persistence;
@@ -23,6 +24,9 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<DropsLedgerEntry> DropsLedgerEntries => Set<DropsLedgerEntry>();
     public DbSet<PrestigeLedgerEntry> PrestigeLedgerEntries => Set<PrestigeLedgerEntry>();
     public DbSet<PublicProfile> PublicProfiles => Set<PublicProfile>();
+    public DbSet<CosmeticItem> CosmeticItems => Set<CosmeticItem>();
+    public DbSet<UserCosmetic> UserCosmetics => Set<UserCosmetic>();
+    public DbSet<CharacterLoadout> CharacterLoadouts => Set<CharacterLoadout>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -171,6 +175,42 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             profile.Property(item => item.DisplayName).HasMaxLength(40);
             profile.Property(item => item.Bio).HasMaxLength(160);
             profile.HasOne<ApplicationUser>().WithOne().HasForeignKey<PublicProfile>(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CosmeticItem>(cosmetic =>
+        {
+            cosmetic.HasKey(item => item.Code);
+            cosmetic.Property(item => item.Code).HasMaxLength(32);
+            cosmetic.Property(item => item.RequiredAchievementCode).HasMaxLength(32);
+            cosmetic.HasOne<AchievementDefinition>()
+                .WithMany()
+                .HasForeignKey(item => item.RequiredAchievementCode)
+                .OnDelete(DeleteBehavior.Restrict);
+            cosmetic.HasData(
+                new { Code = "natural", RequiredAchievementCode = (string?)null, SortOrder = 1 },
+                new { Code = "ocean", RequiredAchievementCode = "first-goal", SortOrder = 2 },
+                new { Code = "sunset", RequiredAchievementCode = "streak-3", SortOrder = 3 },
+                new { Code = "stellar", RequiredAchievementCode = "streak-7", SortOrder = 4 });
+        });
+
+        builder.Entity<UserCosmetic>(cosmetic =>
+        {
+            cosmetic.HasKey(item => item.Id);
+            cosmetic.HasIndex(item => new { item.UserId, item.CosmeticCode }).IsUnique();
+            cosmetic.Property(item => item.UserId).HasMaxLength(450);
+            cosmetic.Property(item => item.CosmeticCode).HasMaxLength(32);
+            cosmetic.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
+            cosmetic.HasOne<CosmeticItem>().WithMany().HasForeignKey(item => item.CosmeticCode).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<CharacterLoadout>(loadout =>
+        {
+            loadout.HasKey(item => item.Id);
+            loadout.HasIndex(item => item.UserId).IsUnique();
+            loadout.Property(item => item.UserId).HasMaxLength(450);
+            loadout.Property(item => item.AuraCode).HasMaxLength(32);
+            loadout.HasOne<ApplicationUser>().WithOne().HasForeignKey<CharacterLoadout>(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
+            loadout.HasOne<CosmeticItem>().WithMany().HasForeignKey(item => item.AuraCode).OnDelete(DeleteBehavior.Restrict);
         });
     }
 
