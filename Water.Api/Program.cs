@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Water.Api.Features.Profiles;
 using Water.Api.Features.Hydration;
+using Water.Api.Features.Habits;
 using Water.Infrastructure;
 using Water.Infrastructure.Identity;
 
@@ -75,6 +76,7 @@ app.MapGroup("/api/v1/auth")
     .MapIdentityApi<ApplicationUser>();
 app.MapProfileEndpoints();
 app.MapHydrationEndpoints();
+app.MapHabitEndpoints();
 
 app.Run();
 

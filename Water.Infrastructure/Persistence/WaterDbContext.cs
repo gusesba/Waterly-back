@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Water.Domain.Hydration;
+using Water.Domain.Habits;
 using Water.Domain.Profiles;
 using Water.Infrastructure.Identity;
 
@@ -14,6 +15,8 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<DrinkEntry> DrinkEntries => Set<DrinkEntry>();
     public DbSet<Beverage> Beverages => Set<Beverage>();
     public DbSet<HydrationOperation> HydrationOperations => Set<HydrationOperation>();
+    public DbSet<DailyHydration> DailyHydrations => Set<DailyHydration>();
+    public DbSet<UserStreak> UserStreaks => Set<UserStreak>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -92,6 +95,30 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             operation.Property(item => item.OperationType).HasMaxLength(16);
             operation.Property(item => item.Payload).HasMaxLength(128);
             operation.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<DailyHydration>(daily =>
+        {
+            daily.HasKey(item => item.Id);
+            daily.HasIndex(item => new { item.UserId, item.LocalDate }).IsUnique();
+            daily.Property(item => item.UserId).HasMaxLength(450);
+            daily.Property(item => item.TimeZone).HasMaxLength(50);
+            daily.Property(item => item.Progress).HasPrecision(6, 4);
+            daily.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<UserStreak>(streak =>
+        {
+            streak.HasKey(item => item.Id);
+            streak.HasIndex(item => item.UserId).IsUnique();
+            streak.Property(item => item.UserId).HasMaxLength(450);
+            streak.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(item => item.UserId)
                 .OnDelete(DeleteBehavior.Cascade);

@@ -3,8 +3,14 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
 using Water.Application.Profiles;
 using Water.Application.Hydration;
+using Water.Application.Habits;
+using Water.Domain.Hydration;
+using Water.Infrastructure.Identity;
+using Water.Infrastructure.Persistence;
 
 namespace Water.Tests.Integration;
 
@@ -162,6 +168,64 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     {
         using var client = factory.CreateClient();
         var response = await client.GetAsync("/api/v1/hydration/today");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Streak_rebuilds_after_hydration_changes()
+    {
+        var email = $"streak-{Guid.NewGuid():N}@example.com";
+        const string password = "waterly123";
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+        var tokens = await LoginAsync(email, password);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+        await _client.PutAsJsonAsync("/api/v1/me/onboarding", new CompleteOnboardingRequest(
+            28, 178, 74.5m, 500, ["habit"], "UTC"));
+
+        var yesterday = new DateTimeOffset(
+            DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(-1).AddHours(12), DateTimeKind.Utc));
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByEmailAsync(email);
+            Assert.NotNull(user);
+            var dbContext = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            dbContext.HydrationGoals.Add(new HydrationGoal(
+                user.Id, 500, DateOnly.FromDateTime(yesterday.UtcDateTime)));
+            await dbContext.SaveChangesAsync();
+        }
+        var yesterdayResponse = await _client.PostAsJsonAsync("/api/v1/hydration/entries", new AddDrinkEntryRequest(
+            Guid.NewGuid(), 500, yesterday, "UTC"));
+        Assert.Equal(HttpStatusCode.OK, yesterdayResponse.StatusCode);
+        var yesterdayStreak = await _client.GetFromJsonAsync<StreakResponse>("/api/v1/habits/streak");
+        Assert.NotNull(yesterdayStreak);
+        Assert.Equal(1, yesterdayStreak.Current);
+        Assert.False(yesterdayStreak.TodayCompleted);
+
+        var todayEntry = new AddDrinkEntryRequest(Guid.NewGuid(), 500, DateTimeOffset.UtcNow, "UTC");
+        var hydrationResponse = await _client.PostAsJsonAsync("/api/v1/hydration/entries", todayEntry);
+        var hydration = await hydrationResponse.Content.ReadFromJsonAsync<TodayHydrationResponse>();
+        Assert.NotNull(hydration);
+        var completedStreak = await _client.GetFromJsonAsync<StreakResponse>("/api/v1/habits/streak");
+        Assert.NotNull(completedStreak);
+        Assert.Equal(2, completedStreak.Current);
+        Assert.Equal(2, completedStreak.Longest);
+        Assert.True(completedStreak.TodayCompleted);
+
+        var deletePath = $"/api/v1/hydration/entries/{hydration.Entries.Single().Id}?clientOperationId={Guid.NewGuid()}";
+        Assert.Equal(HttpStatusCode.OK, (await _client.DeleteAsync(deletePath)).StatusCode);
+        var recalculated = await _client.GetFromJsonAsync<StreakResponse>("/api/v1/habits/streak");
+        Assert.NotNull(recalculated);
+        Assert.Equal(1, recalculated.Current);
+        Assert.False(recalculated.TodayCompleted);
+    }
+
+    [Fact]
+    public async Task Streak_requires_authentication()
+    {
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync("/api/v1/habits/streak");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }

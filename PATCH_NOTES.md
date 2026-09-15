@@ -2,15 +2,35 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 2E — Feedback visual e conclusão da beta individual
+## Etapa 3A — Agregado diário e sequência de hidratação
 
 Data: 2026-09-15
 
 ### Backend — `não commitado`
 
-- Sem alterações funcionais nesta etapa.
+- Projeções persistidas e reconstruíveis de hidratação diária e sequência do usuário.
+- Cálculo versionado que preserva a sequência enquanto o dia atual ainda está aberto e limita a conclusão a 100% da meta.
+- Reprocessamento após criação, edição ou exclusão a partir dos registros e metas que continuam como fontes de verdade.
+- Endpoint autenticado `GET /api/v1/habits/streak` com sequência atual, recorde, conclusão de hoje e último dia concluído.
+- Migration para `DailyHydrations` e `UserStreaks`, com unicidade por usuário e data.
+- ADR das regras de fuso, mudança de fuso, meta histórica e reprocessamento idempotente.
+- Testes unitários do cálculo e teste integrado do ciclo de criação e exclusão.
 
 ### Frontend — `não commitado`
+
+- Card compacto na tela Hoje com sequência atual, recorde e estado da meta do dia.
+- Invalidação da sequência após alterações online e depois da sincronização da fila offline.
+- Textos do hábito disponíveis em português e inglês.
+
+## Etapa 2E — Feedback visual e conclusão da beta individual
+
+Data: 2026-09-15
+
+### Backend — `e6d551e` (`2e`)
+
+- Sem alterações funcionais nesta etapa.
+
+### Frontend — `87c2c89` (`2e`)
 
 - Barra e percentual de progresso animados após mudanças na hidratação.
 - Preferência de redução de movimento respeitada.

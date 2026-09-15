@@ -4,6 +4,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Water.Application.Profiles;
 using Water.Application.Hydration;
+using Water.Application.Habits;
+using Water.Infrastructure.Habits;
 using Water.Infrastructure.Hydration;
 using Water.Infrastructure.Identity;
 using Water.Infrastructure.Persistence;
@@ -32,6 +34,7 @@ public static class DependencyInjection
         }).AddEntityFrameworkStores<WaterDbContext>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IHydrationService, HydrationService>();
+        services.AddScoped<IHabitService, HabitService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
