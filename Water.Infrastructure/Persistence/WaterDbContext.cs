@@ -32,6 +32,7 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<PrivateGroup> PrivateGroups => Set<PrivateGroup>();
     public DbSet<GroupMembership> GroupMemberships => Set<GroupMembership>();
+    public DbSet<GroupInvite> GroupInvites => Set<GroupInvite>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -223,6 +224,17 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             membership.Property(item => item.Role).HasMaxLength(16);
             membership.HasOne<PrivateGroup>().WithMany().HasForeignKey(item => item.GroupId).OnDelete(DeleteBehavior.Cascade);
             membership.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<GroupInvite>(invite =>
+        {
+            invite.HasKey(item => item.Id);
+            invite.HasIndex(item => item.TokenHash).IsUnique();
+            invite.HasIndex(item => item.GroupId);
+            invite.Property(item => item.CreatedByUserId).HasMaxLength(450);
+            invite.Property(item => item.TokenHash).HasMaxLength(64);
+            invite.HasOne<PrivateGroup>().WithMany().HasForeignKey(item => item.GroupId).OnDelete(DeleteBehavior.Cascade);
+            invite.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<CosmeticItem>(cosmetic =>

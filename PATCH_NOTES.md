@@ -2,11 +2,31 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 4B — Grupos privados e membros
+## Etapa 4C — Convites e capacidade de grupos
 
 Data: 2026-09-15
 
 ### Backend — `não commitado`
+
+- Limite autoritativo de dois grupos por usuário aplicado à criação, aceite de convite e inclusão direta de membros.
+- Convites de grupo reutilizáveis por sete dias, com token aleatório armazenado somente como hash, rotação e revogação pelo proprietário.
+- Prévia pública limitada aos dados sociais do grupo e aceite autenticado e idempotente.
+- Códigos estáveis para capacidade esgotada e convite indisponível, além de rate limiting social.
+- Migration `AddGroupInvitesAndCapacity` e testes de domínio, rotação, revogação, idempotência e limite de slots.
+
+### Frontend — `não commitado`
+
+- Indicador de uso dos dois slots e bloqueio visual da criação quando a capacidade está completa.
+- Geração, compartilhamento e revogação de link e QR code pelo proprietário.
+- Tela de prévia e aceite de convite com estados de autenticação, associação existente, capacidade e indisponibilidade.
+- Convite pendente persistido localmente e retomado depois do onboarding ou login.
+- Deep link `water://invite/group/{token}`, textos em português e inglês e testes do parser de links.
+
+## Etapa 4B — Grupos privados e membros
+
+Data: 2026-09-15
+
+### Backend — `13487dd` (`4b`)
 
 - Grupos privados com proprietário e associações únicas por usuário.
 - Autorização por associação: externos recebem recurso inexistente e somente o proprietário administra.
@@ -14,7 +34,7 @@ Data: 2026-09-15
 - Inclusão idempotente restrita a amizades aceitas e contratos sem e-mail ou dados físicos.
 - Migration `AddPrivateGroups` e testes de domínio, autenticação, privacidade, papéis e ciclo de vida.
 
-### Frontend — `não commitado`
+### Frontend — `0d1b83c` (`4b`)
 
 - Abas principais Hoje, Grupos e Perfil, mantendo rotas auxiliares ocultas da barra.
 - Tela Grupos com listagem, estado vazio e criação.

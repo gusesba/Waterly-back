@@ -535,6 +535,67 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/groups")).StatusCode);
     }
 
+    [Fact]
+    public async Task Group_invites_rotate_are_idempotent_and_respect_capacity()
+    {
+        const string password = "waterly123";
+        var ownerEmail = $"invite-owner-{Guid.NewGuid():N}@example.com";
+        var memberEmail = $"invite-member-{Guid.NewGuid():N}@example.com";
+        foreach (var email in new[] { ownerEmail, memberEmail })
+            await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+        var owner = await LoginAsync(ownerEmail, password);
+        var member = await LoginAsync(memberEmail, password);
+
+        async Task SaveProfile(string accessToken, string username, string displayName)
+        {
+            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            (await _client.PutAsJsonAsync("/api/v1/profile", new UpdatePublicProfileRequest(username, displayName, null))).EnsureSuccessStatusCode();
+        }
+        await SaveProfile(owner.AccessToken, $"owner_{Guid.NewGuid():N}"[..20], "Invite Owner");
+        await SaveProfile(member.AccessToken, $"member_{Guid.NewGuid():N}"[..20], "Invite Member");
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+        var group = await (await _client.PostAsJsonAsync("/api/v1/groups", new SaveGroupRequest("Invite Group", null))).Content.ReadFromJsonAsync<GroupDetailResponse>();
+        Assert.NotNull(group);
+        var firstResponse = await _client.PostAsync($"/api/v1/groups/{group.Id}/invite", null);
+        firstResponse.EnsureSuccessStatusCode();
+        var first = await firstResponse.Content.ReadFromJsonAsync<GroupInviteResponse>();
+        var secondResponse = await _client.PostAsync($"/api/v1/groups/{group.Id}/invite", null);
+        secondResponse.EnsureSuccessStatusCode();
+        var second = await secondResponse.Content.ReadFromJsonAsync<GroupInviteResponse>();
+        Assert.NotNull(first);
+        Assert.NotNull(second);
+        Assert.NotEqual(first.Token, second.Token);
+
+        _client.DefaultRequestHeaders.Authorization = null;
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/api/v1/invites/group/{first.Token}")).StatusCode);
+        var preview = await _client.GetFromJsonAsync<GroupInvitePreviewResponse>($"/api/v1/invites/group/{second.Token}");
+        Assert.Equal("Invite Group", preview?.GroupName);
+        Assert.Equal("Invite Owner", preview?.OwnerDisplayName);
+        Assert.False(preview?.IsMember);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _client.PostAsync($"/api/v1/invites/group/{second.Token}/accept", null)).StatusCode);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", member.AccessToken);
+        var accepted = await (await _client.PostAsync($"/api/v1/invites/group/{second.Token}/accept", null)).Content.ReadFromJsonAsync<GroupDetailResponse>();
+        var repeated = await (await _client.PostAsync($"/api/v1/invites/group/{second.Token}/accept", null)).Content.ReadFromJsonAsync<GroupDetailResponse>();
+        Assert.Equal(2, accepted?.Members.Count);
+        Assert.Equal(2, repeated?.Members.Count);
+
+        var ownGroup = await _client.PostAsJsonAsync("/api/v1/groups", new SaveGroupRequest("Second Slot", null));
+        ownGroup.EnsureSuccessStatusCode();
+        var third = await _client.PostAsJsonAsync("/api/v1/groups", new SaveGroupRequest("No Slot", null));
+        Assert.Equal(HttpStatusCode.Conflict, third.StatusCode);
+        Assert.Contains("group_capacity_reached", await third.Content.ReadAsStringAsync());
+        var capacity = await _client.GetFromJsonAsync<GroupCapacityResponse>("/api/v1/groups/capacity");
+        Assert.Equal(2, capacity?.Used);
+        Assert.Equal(2, capacity?.Limit);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/api/v1/groups/{group.Id}/invite")).StatusCode);
+        _client.DefaultRequestHeaders.Authorization = null;
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/api/v1/invites/group/{second.Token}")).StatusCode);
+    }
+
     private async Task<(string AccessToken, string RefreshToken)> LoginAsync(string email, string password)
     {
         var response = await _client.PostAsJsonAsync("/api/v1/auth/login?useCookies=false", new

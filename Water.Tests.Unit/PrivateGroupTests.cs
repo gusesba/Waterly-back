@@ -15,4 +15,18 @@ public sealed class PrivateGroupTests
         Assert.Equal("owner", membership.Role);
         Assert.Equal(group.Id, membership.GroupId);
     }
+
+    [Fact]
+    public void Invite_can_be_revoked_only_once_and_expires()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var invite = new GroupInvite(Guid.NewGuid(), "owner", "hash", now, now.AddDays(7));
+        Assert.True(invite.IsAvailable(now));
+        invite.Revoke(now.AddMinutes(1));
+        invite.Revoke(now.AddMinutes(2));
+        Assert.False(invite.IsAvailable(now.AddMinutes(1)));
+        Assert.Equal(now.AddMinutes(1), invite.RevokedAt);
+        var expired = new GroupInvite(Guid.NewGuid(), "owner", "other-hash", now, now.AddDays(7));
+        Assert.False(expired.IsAvailable(now.AddDays(7)));
+    }
 }
