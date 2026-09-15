@@ -5,9 +5,10 @@ namespace Water.Api.Features.Social;
 
 public static class FriendEndpoints
 {
-    public static IEndpointRouteBuilder MapFriendEndpoints(this IEndpointRouteBuilder endpoints)
+    public static IEndpointRouteBuilder MapFriendEndpoints(this IEndpointRouteBuilder endpoints, bool requireRateLimiting = true)
     {
-        var group = endpoints.MapGroup("/api/v1").RequireAuthorization().RequireRateLimiting("social").WithTags("Social");
+        var group = endpoints.MapGroup("/api/v1").RequireAuthorization().WithTags("Social");
+        if (requireRateLimiting) group.RequireRateLimiting("social");
         group.MapGet("/profiles/search", SearchAsync);
         group.MapGet("/friends", GetFriendsAsync);
         group.MapGet("/friends/requests", GetRequestsAsync);

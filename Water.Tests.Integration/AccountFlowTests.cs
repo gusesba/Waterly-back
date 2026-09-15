@@ -474,6 +474,67 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(path)).StatusCode);
     }
 
+    [Fact]
+    public async Task Private_group_enforces_membership_ownership_and_friendship()
+    {
+        const string password = "waterly123";
+        var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
+        var memberEmail = $"member-{Guid.NewGuid():N}@example.com";
+        var outsiderEmail = $"outsider-{Guid.NewGuid():N}@example.com";
+        foreach (var email in new[] { ownerEmail, memberEmail, outsiderEmail })
+            await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+        var owner = await LoginAsync(ownerEmail, password);
+        var member = await LoginAsync(memberEmail, password);
+        var outsider = await LoginAsync(outsiderEmail, password);
+
+        async Task SaveProfile(string token, string username)
+        {
+            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            (await _client.PutAsJsonAsync("/api/v1/profile", new UpdatePublicProfileRequest(username, username, null))).EnsureSuccessStatusCode();
+        }
+        await SaveProfile(owner.AccessToken, "group_owner");
+        await SaveProfile(member.AccessToken, "group_member");
+        await SaveProfile(outsider.AccessToken, "group_outsider");
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+        await _client.PostAsJsonAsync("/api/v1/friends/requests", new CreateFriendRequest("group_member"));
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", member.AccessToken);
+        await _client.PostAsJsonAsync("/api/v1/friends/requests", new CreateFriendRequest("group_owner"));
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+        var createResponse = await _client.PostAsJsonAsync("/api/v1/groups", new SaveGroupRequest("Hydration Team", "Private group"));
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<GroupDetailResponse>();
+        Assert.NotNull(created);
+        Assert.True(created.IsOwner);
+        Assert.Single(created.Members);
+        var memberProfile = (await _client.GetFromJsonAsync<SocialProfileResponse[]>("/api/v1/friends"))!.Single();
+        var added = await (await _client.PostAsJsonAsync($"/api/v1/groups/{created.Id}/members", new AddGroupMemberRequest(memberProfile.UserId))).Content.ReadFromJsonAsync<GroupDetailResponse>();
+        var duplicate = await (await _client.PostAsJsonAsync($"/api/v1/groups/{created.Id}/members", new AddGroupMemberRequest(memberProfile.UserId))).Content.ReadFromJsonAsync<GroupDetailResponse>();
+        Assert.Equal(2, added?.Members.Count);
+        Assert.Equal(2, duplicate?.Members.Count);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", outsider.AccessToken);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/api/v1/groups/{created.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.PutAsJsonAsync($"/api/v1/groups/{created.Id}", new SaveGroupRequest("Changed", null))).StatusCode);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", member.AccessToken);
+        var memberViewJson = await _client.GetStringAsync($"/api/v1/groups/{created.Id}");
+        Assert.DoesNotContain("email", memberViewJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("weight", memberViewJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/api/v1/groups/{created.Id}/membership")).StatusCode);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
+        Assert.Equal(HttpStatusCode.Conflict, (await _client.DeleteAsync($"/api/v1/groups/{created.Id}/membership")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/api/v1/groups/{created.Id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Groups_require_authentication()
+    {
+        using var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/groups")).StatusCode);
+    }
+
     private async Task<(string AccessToken, string RefreshToken)> LoginAsync(string email, string password)
     {
         var response = await _client.PostAsJsonAsync("/api/v1/auth/login?useCookies=false", new

@@ -48,6 +48,7 @@ public static class DependencyInjection
         services.AddScoped<ICosmeticService, CosmeticService>();
         services.AddScoped<IDailyClosureService, DailyClosureService>();
         services.AddScoped<IFriendService, FriendService>();
+        services.AddScoped<IGroupService, GroupService>();
         services.AddOptions<DailyClosureOptions>()
             .Bind(configuration.GetSection(DailyClosureOptions.SectionName))
             .Validate(options => options.Interval > TimeSpan.Zero, "DailyClosure interval must be positive.")

@@ -97,7 +97,8 @@ app.MapHabitEndpoints();
 app.MapAchievementEndpoints();
 app.MapProgressionEndpoints();
 app.MapCosmeticEndpoints();
-app.MapFriendEndpoints();
+app.MapFriendEndpoints(!app.Environment.IsEnvironment("Testing"));
+app.MapGroupEndpoints(!app.Environment.IsEnvironment("Testing"));
 
 app.Run();
 

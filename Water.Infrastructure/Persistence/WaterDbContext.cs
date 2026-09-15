@@ -30,6 +30,8 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<CharacterLoadout> CharacterLoadouts => Set<CharacterLoadout>();
     public DbSet<DailyClosureCheckpoint> DailyClosureCheckpoints => Set<DailyClosureCheckpoint>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
+    public DbSet<PrivateGroup> PrivateGroups => Set<PrivateGroup>();
+    public DbSet<GroupMembership> GroupMemberships => Set<GroupMembership>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -202,6 +204,25 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             friendship.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserLowId).OnDelete(DeleteBehavior.Restrict);
             friendship.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserHighId).OnDelete(DeleteBehavior.Restrict);
             friendship.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.RequestedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<PrivateGroup>(group =>
+        {
+            group.HasKey(item => item.Id);
+            group.Property(item => item.OwnerId).HasMaxLength(450);
+            group.Property(item => item.Name).HasMaxLength(40);
+            group.Property(item => item.Description).HasMaxLength(160);
+            group.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.OwnerId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<GroupMembership>(membership =>
+        {
+            membership.HasKey(item => item.Id);
+            membership.HasIndex(item => new { item.GroupId, item.UserId }).IsUnique();
+            membership.Property(item => item.UserId).HasMaxLength(450);
+            membership.Property(item => item.Role).HasMaxLength(16);
+            membership.HasOne<PrivateGroup>().WithMany().HasForeignKey(item => item.GroupId).OnDelete(DeleteBehavior.Cascade);
+            membership.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<CosmeticItem>(cosmetic =>

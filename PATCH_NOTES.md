@@ -2,11 +2,30 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 4A — Amizades e solicitações
+## Etapa 4B — Grupos privados e membros
 
 Data: 2026-09-15
 
 ### Backend — `não commitado`
+
+- Grupos privados com proprietário e associações únicas por usuário.
+- Autorização por associação: externos recebem recurso inexistente e somente o proprietário administra.
+- Criação, listagem, detalhe, edição, exclusão, inclusão/remoção de amigos e saída do membro.
+- Inclusão idempotente restrita a amizades aceitas e contratos sem e-mail ou dados físicos.
+- Migration `AddPrivateGroups` e testes de domínio, autenticação, privacidade, papéis e ciclo de vida.
+
+### Frontend — `não commitado`
+
+- Abas principais Hoje, Grupos e Perfil, mantendo rotas auxiliares ocultas da barra.
+- Tela Grupos com listagem, estado vazio e criação.
+- Detalhe com edição, membros, adição de amigos, remoção, saída e exclusão confirmada.
+- Textos em português e inglês e teste da filtragem de amigos disponíveis.
+
+## Etapa 4A — Amizades e solicitações
+
+Data: 2026-09-15
+
+### Backend — `f319803` (`4a`)
 
 - Relação única por par de usuários com solicitações pendentes e amizades aceitas.
 - Busca limitada de perfis públicos sem exposição de e-mail ou dados físicos.
@@ -14,7 +33,7 @@ Data: 2026-09-15
 - Solicitações repetidas idempotentes, solicitações cruzadas aceitas automaticamente e autorização por participante.
 - Rate limiting social por endereço de origem, migration `AddFriendships` e testes unitários e de integração.
 
-### Frontend — `não commitado`
+### Frontend — `f913aa4` (`4a`)
 
 - Tela Amigos com busca por username e listas de recebidas, enviadas e amizades.
 - Ações de adicionar, aceitar, recusar, cancelar e remover com confirmação e atualização do cache.
