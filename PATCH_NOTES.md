@@ -2,6 +2,25 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
++## Etapa 2D — Lembretes locais
+
+Data: 2026-09-15
+
+### Backend — `não commitado`
+
+- Sem alterações funcionais nesta etapa.
+
+### Frontend — `não commitado`
+
+- Tela de configuração com ativação e até três horários diários.
+- Preferências versionadas e persistidas localmente por conta.
+- Solicitação de permissão somente após ação do usuário.
+- Canal Android dedicado e agendamentos locais diários.
+- Reagendamento e cancelamento restritos aos identificadores criados pelo Waterly.
+- Tratamento de permissão negada, plataforma web e abertura das configurações do dispositivo.
+- Testes de horários, persistência, permissões, agendamento e cancelamento.
+
+
 ## Etapa 2C — Sincronização offline robusta
 
 Data: 2026-09-15
@@ -115,5 +134,4 @@ Ao concluir uma etapa que será commitada:
 3. informar o hash e a mensagem de cada commit assim que existirem;
 4. enquanto o commit ainda não existir, usar `não commitado` e substituir pelo hash posteriormente;
 5. descrever mudanças funcionais, migrations, contratos e testes relevantes, evitando uma simples lista de arquivos.
-
 
