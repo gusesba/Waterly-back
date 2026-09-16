@@ -66,6 +66,10 @@ public sealed class GroupService(WaterDbContext dbContext, TimeProvider timeProv
         if (!alreadyMember)
         {
             await EnsureCapacityAsync(memberId, token);
+            var blocked = await dbContext.UserBlocks.AsNoTracking().AnyAsync(item =>
+                (item.BlockerUserId == userId && item.BlockedUserId == memberId) ||
+                (item.BlockerUserId == memberId && item.BlockedUserId == userId), token);
+            if (blocked) throw new GroupConflictException();
             var friendship = await dbContext.Friendships.AsNoTracking().AnyAsync(item => item.AcceptedAt != null &&
                 ((item.UserLowId == userId && item.UserHighId == memberId) || (item.UserLowId == memberId && item.UserHighId == userId)), token);
             if (!friendship) throw new GroupConflictException();

@@ -99,6 +99,7 @@ app.MapAchievementEndpoints();
 app.MapProgressionEndpoints();
 app.MapCosmeticEndpoints();
 app.MapFriendEndpoints(!app.Environment.IsEnvironment("Testing"));
+app.MapBlockEndpoints(!app.Environment.IsEnvironment("Testing"));
 app.MapGroupEndpoints(!app.Environment.IsEnvironment("Testing"));
 app.MapFeedEndpoints(!app.Environment.IsEnvironment("Testing"));
 

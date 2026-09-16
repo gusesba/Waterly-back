@@ -60,12 +60,15 @@ public sealed class FeedService(WaterDbContext dbContext, TimeProvider timeProvi
     }
 
     private IQueryable<FeedEvent> VisibleEvents(string userId) => dbContext.FeedEvents.Where(item =>
-        (item.Audience == "friends" && (item.ActorUserId == userId || dbContext.Friendships.Any(friendship =>
+        !dbContext.UserBlocks.Any(block =>
+            (block.BlockerUserId == userId && block.BlockedUserId == item.ActorUserId) ||
+            (block.BlockerUserId == item.ActorUserId && block.BlockedUserId == userId)) &&
+        ((item.Audience == "friends" && (item.ActorUserId == userId || dbContext.Friendships.Any(friendship =>
             friendship.AcceptedAt != null &&
             ((friendship.UserLowId == userId && friendship.UserHighId == item.ActorUserId) ||
              (friendship.UserHighId == userId && friendship.UserLowId == item.ActorUserId))))) ||
         (item.Audience == "group" && item.GroupId != null && dbContext.GroupMemberships.Any(membership =>
-            membership.UserId == userId && membership.GroupId == item.GroupId)));
+            membership.UserId == userId && membership.GroupId == item.GroupId))));
 
     private async Task<FeedReactionSummaryResponse> GetReactionSummaryAsync(Guid eventId, string userId, CancellationToken token) =>
         Summarize(await dbContext.FeedReactions.AsNoTracking().Where(item => item.FeedEventId == eventId).ToArrayAsync(token), userId);

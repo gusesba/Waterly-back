@@ -480,6 +480,76 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     }
 
     [Fact]
+    public async Task Blocking_removes_social_contact_hides_activity_and_preserves_shared_groups()
+    {
+        const string password = "waterly123";
+        var aliceEmail = $"block-alice-{Guid.NewGuid():N}@example.com";
+        var bobEmail = $"block-bob-{Guid.NewGuid():N}@example.com";
+        foreach (var email in new[] { aliceEmail, bobEmail })
+            await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+        var alice = await LoginAsync(aliceEmail, password);
+        var bob = await LoginAsync(bobEmail, password);
+
+        async Task SaveProfile(string accessToken, string username)
+        {
+            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            (await _client.PutAsJsonAsync("/api/v1/profile", new UpdatePublicProfileRequest(username, username, null))).EnsureSuccessStatusCode();
+        }
+        var aliceUsername = $"ba_{Guid.NewGuid():N}"[..20];
+        var bobUsername = $"bb_{Guid.NewGuid():N}"[..20];
+        await SaveProfile(alice.AccessToken, aliceUsername);
+        await SaveProfile(bob.AccessToken, bobUsername);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", alice.AccessToken);
+        var bobProfile = (await _client.GetFromJsonAsync<SocialProfileResponse[]>($"/api/v1/profiles/search?query={bobUsername[..3]}"))!.Single();
+        await _client.PostAsJsonAsync("/api/v1/friends/requests", new CreateFriendRequest(bobUsername));
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bob.AccessToken);
+        (await _client.PostAsJsonAsync("/api/v1/friends/requests", new CreateFriendRequest(aliceUsername))).EnsureSuccessStatusCode();
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", alice.AccessToken);
+        var group = await (await _client.PostAsJsonAsync("/api/v1/groups", new SaveGroupRequest("Block test", null))).Content.ReadFromJsonAsync<GroupDetailResponse>();
+        (await _client.PostAsJsonAsync($"/api/v1/groups/{group!.Id}/members", new AddGroupMemberRequest(bobProfile.UserId))).EnsureSuccessStatusCode();
+        Assert.Contains((await _client.GetFromJsonAsync<FeedPageResponse>("/api/v1/feed"))!.Items, item => item.Actor.UserId == bobProfile.UserId);
+
+        string aliceId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            aliceId = (await db.Users.SingleAsync(item => item.Email == aliceEmail)).Id;
+        }
+        Assert.Equal(HttpStatusCode.Conflict, (await _client.PutAsync($"/api/v1/blocks/{aliceId}", null)).StatusCode);
+        (await _client.PutAsync($"/api/v1/blocks/{bobProfile.UserId}", null)).EnsureSuccessStatusCode();
+        (await _client.PutAsync($"/api/v1/blocks/{bobProfile.UserId}", null)).EnsureSuccessStatusCode();
+        Assert.Single((await _client.GetFromJsonAsync<SocialProfileResponse[]>("/api/v1/blocks"))!, item => item.UserId == bobProfile.UserId);
+        Assert.Empty((await _client.GetFromJsonAsync<SocialProfileResponse[]>("/api/v1/friends"))!);
+        Assert.Empty((await _client.GetFromJsonAsync<SocialProfileResponse[]>($"/api/v1/profiles/search?query={bobUsername[..3]}"))!);
+        Assert.DoesNotContain((await _client.GetFromJsonAsync<FeedPageResponse>("/api/v1/feed"))!.Items, item => item.Actor.UserId == bobProfile.UserId);
+        Assert.Contains((await _client.GetFromJsonAsync<GroupDetailResponse>($"/api/v1/groups/{group.Id}"))!.Members, item => item.UserId == bobProfile.UserId);
+        (await _client.DeleteAsync($"/api/v1/groups/{group.Id}/members/{bobProfile.UserId}")).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Conflict, (await _client.PostAsJsonAsync($"/api/v1/groups/{group.Id}/members", new AddGroupMemberRequest(bobProfile.UserId))).StatusCode);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bob.AccessToken);
+        Assert.Empty((await _client.GetFromJsonAsync<SocialProfileResponse[]>($"/api/v1/profiles/search?query={aliceUsername[..3]}"))!);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.PostAsJsonAsync("/api/v1/friends/requests", new CreateFriendRequest(aliceUsername))).StatusCode);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", alice.AccessToken);
+        (await _client.DeleteAsync($"/api/v1/blocks/{bobProfile.UserId}")).EnsureSuccessStatusCode();
+        (await _client.DeleteAsync($"/api/v1/blocks/{bobProfile.UserId}")).EnsureSuccessStatusCode();
+        Assert.Empty((await _client.GetFromJsonAsync<SocialProfileResponse[]>("/api/v1/blocks"))!);
+        Assert.Empty((await _client.GetFromJsonAsync<SocialProfileResponse[]>("/api/v1/friends"))!);
+        Assert.Contains((await _client.GetFromJsonAsync<SocialProfileResponse[]>($"/api/v1/profiles/search?query={bobUsername[..3]}"))!, item => item.UserId == bobProfile.UserId);
+    }
+
+    [Fact]
+    public async Task Block_endpoints_require_authentication()
+    {
+        using var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/blocks")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PutAsync("/api/v1/blocks/user", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.DeleteAsync("/api/v1/blocks/user")).StatusCode);
+    }
+
+    [Fact]
     public async Task Private_group_enforces_membership_ownership_and_friendship()
     {
         const string password = "waterly123";

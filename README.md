@@ -7,8 +7,7 @@ Requirements: .NET 10 SDK and Docker.
 From the repository root:
 
 ```powershell
-docker compose -f backend/compose.yaml up -d
-cd backend
+docker compose -f compose.yaml up -d
 dotnet tool restore
 dotnet ef database update --project Water.Infrastructure --startup-project Water.Api
 dotnet run --project Water.Api --launch-profile http

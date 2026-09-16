@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<ICosmeticService, CosmeticService>();
         services.AddScoped<IDailyClosureService, DailyClosureService>();
         services.AddScoped<IFriendService, FriendService>();
+        services.AddScoped<IBlockService, BlockService>();
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IFeedService, FeedService>();
         services.AddOptions<DailyClosureOptions>()

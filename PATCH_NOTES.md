@@ -2,11 +2,29 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 4E — Reações no feed
+## Etapa 4F — Bloqueio e segurança social mínima
 
 Data: 2026-09-16
 
 ### Backend — `não commitado`
+
+- Bloqueio unilateral e idempotente com remoção transacional de amizade ou solicitação pendente.
+- Contas bloqueadas são excluídas mutuamente da busca, de novas solicitações e dos eventos visíveis no feed.
+- Inclusão direta em grupo é recusada entre contas bloqueadas, preservando associações compartilhadas já existentes.
+- Endpoints autenticados para listar, bloquear e desbloquear, protegidos pelo rate limiting social.
+- Migration `AddUserBlocks` e testes de domínio, autenticação, privacidade, idempotência, grupos e desbloqueio sem restauração da amizade.
+
+### Frontend — `não commitado`
+
+- Confirmação em dois passos para bloquear um amigo e invalidação dos caches sociais, de grupos e do feed.
+- Lista privada de contas bloqueadas com desbloqueio e aviso de que a amizade não será restaurada.
+- Estados de carregamento e falha, textos e controles acessíveis em português e inglês.
+
+## Etapa 4E — Reações no feed
+
+Data: 2026-09-16
+
+### Backend — `9223477` (`4e`)
 
 - Catálogo fechado de reações `water`, `celebrate` e `fire`, com uma reação por usuário e evento.
 - Endpoints idempotentes para definir, trocar e remover a reação do usuário atual.

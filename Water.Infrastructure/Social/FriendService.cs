@@ -13,7 +13,10 @@ public sealed class FriendService(WaterDbContext dbContext, TimeProvider timePro
         var normalized = query.Trim().ToUpperInvariant();
         if (normalized.Length < 3) return [];
         var profiles = await dbContext.PublicProfiles.AsNoTracking()
-            .Where(item => item.UserId != userId && item.NormalizedUsername.StartsWith(normalized))
+            .Where(item => item.UserId != userId && item.NormalizedUsername.StartsWith(normalized) &&
+                !dbContext.UserBlocks.Any(block =>
+                    (block.BlockerUserId == userId && block.BlockedUserId == item.UserId) ||
+                    (block.BlockerUserId == item.UserId && block.BlockedUserId == userId)))
             .OrderBy(item => item.NormalizedUsername).Take(10).ToArrayAsync(token);
         return await MapProfilesAsync(userId, profiles, token);
     }
@@ -41,6 +44,7 @@ public sealed class FriendService(WaterDbContext dbContext, TimeProvider timePro
         var target = await dbContext.PublicProfiles.SingleOrDefaultAsync(item => item.NormalizedUsername == username.Trim().ToUpperInvariant(), token)
             ?? throw new SocialNotFoundException();
         if (target.UserId == userId) throw new SocialConflictException();
+        if (await BlockedPair(userId, target.UserId).AnyAsync(token)) throw new SocialNotFoundException();
         var relation = await FindPairAsync(userId, target.UserId, token);
         if (relation is null)
         {
@@ -60,6 +64,7 @@ public sealed class FriendService(WaterDbContext dbContext, TimeProvider timePro
     {
         var relation = await dbContext.Friendships.SingleOrDefaultAsync(item => item.Id == requestId && (item.UserLowId == userId || item.UserHighId == userId), token)
             ?? throw new SocialNotFoundException();
+        if (await BlockedPair(relation.UserLowId, relation.UserHighId).AnyAsync(token)) throw new SocialNotFoundException();
         try { relation.Accept(userId, timeProvider.GetUtcNow()); }
         catch (InvalidOperationException) { throw new SocialConflictException(); }
         await dbContext.SaveChangesAsync(token);
@@ -82,6 +87,9 @@ public sealed class FriendService(WaterDbContext dbContext, TimeProvider timePro
     }
 
     private IQueryable<Friendship> Relations(string userId) => dbContext.Friendships.Where(item => item.UserLowId == userId || item.UserHighId == userId);
+    private IQueryable<UserBlock> BlockedPair(string first, string second) => dbContext.UserBlocks.Where(item =>
+        (item.BlockerUserId == first && item.BlockedUserId == second) ||
+        (item.BlockerUserId == second && item.BlockedUserId == first));
     private Task<Friendship?> FindPairAsync(string first, string second, CancellationToken token)
     {
         var low = string.CompareOrdinal(first, second) < 0 ? first : second;

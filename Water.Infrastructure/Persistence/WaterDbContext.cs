@@ -31,6 +31,7 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<CharacterLoadout> CharacterLoadouts => Set<CharacterLoadout>();
     public DbSet<DailyClosureCheckpoint> DailyClosureCheckpoints => Set<DailyClosureCheckpoint>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
+    public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
     public DbSet<PrivateGroup> PrivateGroups => Set<PrivateGroup>();
     public DbSet<GroupMembership> GroupMemberships => Set<GroupMembership>();
     public DbSet<GroupInvite> GroupInvites => Set<GroupInvite>();
@@ -208,6 +209,16 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             friendship.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserLowId).OnDelete(DeleteBehavior.Restrict);
             friendship.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserHighId).OnDelete(DeleteBehavior.Restrict);
             friendship.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.RequestedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<UserBlock>(block =>
+        {
+            block.HasKey(item => new { item.BlockerUserId, item.BlockedUserId });
+            block.HasIndex(item => item.BlockedUserId);
+            block.Property(item => item.BlockerUserId).HasMaxLength(450);
+            block.Property(item => item.BlockedUserId).HasMaxLength(450);
+            block.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.BlockerUserId).OnDelete(DeleteBehavior.Restrict);
+            block.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.BlockedUserId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<PrivateGroup>(group =>
