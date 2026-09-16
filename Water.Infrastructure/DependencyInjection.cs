@@ -16,6 +16,8 @@ using Water.Application.Cosmetics;
 using Water.Infrastructure.Cosmetics;
 using Water.Application.Social;
 using Water.Infrastructure.Social;
+using Water.Application.Feed;
+using Water.Infrastructure.Feed;
 
 namespace Water.Infrastructure;
 
@@ -49,6 +51,7 @@ public static class DependencyInjection
         services.AddScoped<IDailyClosureService, DailyClosureService>();
         services.AddScoped<IFriendService, FriendService>();
         services.AddScoped<IGroupService, GroupService>();
+        services.AddScoped<IFeedService, FeedService>();
         services.AddOptions<DailyClosureOptions>()
             .Bind(configuration.GetSection(DailyClosureOptions.SectionName))
             .Validate(options => options.Interval > TimeSpan.Zero, "DailyClosure interval must be positive.")

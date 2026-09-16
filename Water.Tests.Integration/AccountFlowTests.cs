@@ -13,6 +13,8 @@ using Water.Application.Progression;
 using Water.Domain.Hydration;
 using Water.Application.Cosmetics;
 using Water.Application.Social;
+using Water.Application.Feed;
+using Water.Domain.Feed;
 using Water.Infrastructure.Identity;
 using Water.Infrastructure.Persistence;
 
@@ -77,7 +79,7 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         var entryRequest = new AddDrinkEntryRequest(
             Guid.NewGuid(),
             350,
-            DateTimeOffset.UtcNow,
+            new DateTimeOffset(2026, 9, 15, 14, 0, 0, TimeSpan.Zero),
             "America/Sao_Paulo");
         var firstEntryResponse = await _client.PostAsJsonAsync(
             "/api/v1/hydration/entries",
@@ -188,7 +190,7 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
             28, 178, 74.5m, 500, ["habit"], "UTC"));
 
         var yesterday = new DateTimeOffset(
-            DateTime.SpecifyKind(DateTime.UtcNow.Date.AddDays(-1).AddHours(12), DateTimeKind.Utc));
+            new DateTime(2026, 9, 14, 12, 0, 0, DateTimeKind.Utc));
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
@@ -207,7 +209,7 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(1, yesterdayStreak.Current);
         Assert.False(yesterdayStreak.TodayCompleted);
 
-        var todayEntry = new AddDrinkEntryRequest(Guid.NewGuid(), 500, DateTimeOffset.UtcNow, "UTC");
+        var todayEntry = new AddDrinkEntryRequest(Guid.NewGuid(), 500, new DateTimeOffset(2026, 9, 15, 14, 0, 0, TimeSpan.Zero), "UTC");
         var hydrationResponse = await _client.PostAsJsonAsync("/api/v1/hydration/entries", todayEntry);
         var hydration = await hydrationResponse.Content.ReadFromJsonAsync<TodayHydrationResponse>();
         Assert.NotNull(hydration);
@@ -238,7 +240,7 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
 
         var entryResponse = await _client.PostAsJsonAsync(
             "/api/v1/hydration/entries",
-            new AddDrinkEntryRequest(Guid.NewGuid(), 500, DateTimeOffset.UtcNow, "UTC"));
+            new AddDrinkEntryRequest(Guid.NewGuid(), 500, new DateTimeOffset(2026, 9, 15, 14, 0, 0, TimeSpan.Zero), "UTC"));
         var hydration = await entryResponse.Content.ReadFromJsonAsync<TodayHydrationResponse>();
         Assert.NotNull(hydration);
 
@@ -257,6 +259,8 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(10, prestige.Balance);
         Assert.Single(drops.Entries);
         Assert.Single(prestige.Entries);
+        var feed = await _client.GetFromJsonAsync<FeedPageResponse>("/api/v1/feed");
+        Assert.Single(feed!.Items, item => item.Type == "achievement-unlocked" && item.ReferenceId == "first-goal");
 
         var deletePath = $"/api/v1/hydration/entries/{hydration.Entries.Single().Id}?clientOperationId={Guid.NewGuid()}";
         Assert.Equal(HttpStatusCode.OK, (await _client.DeleteAsync(deletePath)).StatusCode);
@@ -265,6 +269,7 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.True(afterDelete.Single(item => item.Code == "first-goal").IsUnlocked);
         Assert.Equal(25, (await _client.GetFromJsonAsync<ProgressionBalanceResponse>("/api/v1/wallet"))?.Balance);
         Assert.Equal(10, (await _client.GetFromJsonAsync<ProgressionBalanceResponse>("/api/v1/prestige"))?.Balance);
+        Assert.Single((await _client.GetFromJsonAsync<FeedPageResponse>("/api/v1/feed"))!.Items, item => item.Type == "achievement-unlocked" && item.ReferenceId == "first-goal");
     }
 
     [Fact]
@@ -332,7 +337,7 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
             "/api/v1/profile/loadout", new UpdateCharacterLoadoutRequest("ocean"))).StatusCode);
 
         await _client.PostAsJsonAsync("/api/v1/hydration/entries",
-            new AddDrinkEntryRequest(Guid.NewGuid(), 500, DateTimeOffset.UtcNow, "UTC"));
+            new AddDrinkEntryRequest(Guid.NewGuid(), 500, new DateTimeOffset(2026, 9, 15, 14, 0, 0, TimeSpan.Zero), "UTC"));
         var unlocked = await _client.GetFromJsonAsync<CharacterLoadoutResponse>("/api/v1/cosmetics");
         Assert.NotNull(unlocked);
         Assert.True(unlocked.Auras.Single(item => item.Code == "ocean").IsOwned);
@@ -513,6 +518,10 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(2, added?.Members.Count);
         Assert.Equal(2, duplicate?.Members.Count);
 
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", member.AccessToken);
+        var memberFeed = await _client.GetFromJsonAsync<FeedPageResponse>("/api/v1/feed");
+        Assert.Single(memberFeed!.Items, item => item.Type == "group-joined" && item.Actor.IsCurrentUser);
+
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", outsider.AccessToken);
         Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/api/v1/groups/{created.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await _client.PutAsJsonAsync($"/api/v1/groups/{created.Id}", new SaveGroupRequest("Changed", null))).StatusCode);
@@ -522,6 +531,7 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.DoesNotContain("email", memberViewJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("weight", memberViewJson, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/api/v1/groups/{created.Id}/membership")).StatusCode);
+        Assert.DoesNotContain((await _client.GetFromJsonAsync<FeedPageResponse>("/api/v1/feed"))!.Items, item => item.GroupId == created.Id);
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", owner.AccessToken);
         Assert.Equal(HttpStatusCode.Conflict, (await _client.DeleteAsync($"/api/v1/groups/{created.Id}/membership")).StatusCode);
@@ -533,6 +543,72 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     {
         using var client = factory.CreateClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/groups")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Feed_visibility_tracks_current_friendship_and_paginates_without_duplicates()
+    {
+        const string password = "waterly123";
+        var aliceEmail = $"feed-alice-{Guid.NewGuid():N}@example.com";
+        var bobEmail = $"feed-bob-{Guid.NewGuid():N}@example.com";
+        var outsiderEmail = $"feed-outsider-{Guid.NewGuid():N}@example.com";
+        foreach (var email in new[] { aliceEmail, bobEmail, outsiderEmail }) await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+        var alice = await LoginAsync(aliceEmail, password);
+        var bob = await LoginAsync(bobEmail, password);
+        var outsider = await LoginAsync(outsiderEmail, password);
+        async Task Profile(string accessToken, string username)
+        {
+            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            (await _client.PutAsJsonAsync("/api/v1/profile", new UpdatePublicProfileRequest(username, username, null))).EnsureSuccessStatusCode();
+        }
+        var aliceUsername = $"alice_{Guid.NewGuid():N}"[..20];
+        var bobUsername = $"bob_{Guid.NewGuid():N}"[..20];
+        var outsiderUsername = $"out_{Guid.NewGuid():N}"[..20];
+        await Profile(alice.AccessToken, aliceUsername);
+        await Profile(bob.AccessToken, bobUsername);
+        await Profile(outsider.AccessToken, outsiderUsername);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", alice.AccessToken);
+        var bobProfile = (await _client.GetFromJsonAsync<SocialProfileResponse[]>($"/api/v1/profiles/search?query={bobUsername}"))!.Single();
+        await _client.PostAsJsonAsync("/api/v1/friends/requests", new CreateFriendRequest(bobProfile.Username));
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bob.AccessToken);
+        (await _client.PostAsJsonAsync("/api/v1/friends/requests", new CreateFriendRequest(aliceUsername))).EnsureSuccessStatusCode();
+
+        string aliceId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            aliceId = (await db.Users.SingleAsync(item => item.Email == aliceEmail)).Id;
+            var now = new DateTimeOffset(2026, 9, 15, 14, 30, 0, TimeSpan.Zero);
+            db.FeedEvents.AddRange(
+                new FeedEvent(aliceId, "achievement-unlocked", "friends", "a", "a", "feed-a", now),
+                new FeedEvent(aliceId, "achievement-unlocked", "friends", "b", "b", "feed-b", now.AddMilliseconds(1)));
+            await db.SaveChangesAsync();
+        }
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bob.AccessToken);
+        var first = await _client.GetFromJsonAsync<FeedPageResponse>("/api/v1/feed?limit=1");
+        var second = await _client.GetFromJsonAsync<FeedPageResponse>($"/api/v1/feed?limit=1&cursor={Uri.EscapeDataString(first!.NextCursor!)}");
+        Assert.Single(first.Items);
+        Assert.Single(second!.Items);
+        Assert.NotEqual(first.Items.Single().Id, second.Items.Single().Id);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.GetAsync("/api/v1/feed?cursor=invalid")).StatusCode);
+        var json = await _client.GetStringAsync("/api/v1/feed");
+        Assert.DoesNotContain("email", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("weight", json, StringComparison.OrdinalIgnoreCase);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", outsider.AccessToken);
+        Assert.Empty((await _client.GetFromJsonAsync<FeedPageResponse>("/api/v1/feed"))!.Items);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", alice.AccessToken);
+        (await _client.DeleteAsync($"/api/v1/friends/{bobProfile.UserId}")).EnsureSuccessStatusCode();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bob.AccessToken);
+        Assert.Empty((await _client.GetFromJsonAsync<FeedPageResponse>("/api/v1/feed"))!.Items);
+    }
+
+    [Fact]
+    public async Task Feed_requires_authentication()
+    {
+        using var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/feed")).StatusCode);
     }
 
     [Fact]

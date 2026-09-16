@@ -6,6 +6,7 @@ using Water.Domain.Profiles;
 using Water.Domain.Progression;
 using Water.Domain.Cosmetics;
 using Water.Domain.Social;
+using Water.Domain.Feed;
 using Water.Infrastructure.Identity;
 
 namespace Water.Infrastructure.Persistence;
@@ -33,6 +34,7 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<PrivateGroup> PrivateGroups => Set<PrivateGroup>();
     public DbSet<GroupMembership> GroupMemberships => Set<GroupMembership>();
     public DbSet<GroupInvite> GroupInvites => Set<GroupInvite>();
+    public DbSet<FeedEvent> FeedEvents => Set<FeedEvent>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -235,6 +237,24 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             invite.Property(item => item.TokenHash).HasMaxLength(64);
             invite.HasOne<PrivateGroup>().WithMany().HasForeignKey(item => item.GroupId).OnDelete(DeleteBehavior.Cascade);
             invite.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<FeedEvent>(feedEvent =>
+        {
+            feedEvent.HasKey(item => item.Id);
+            feedEvent.HasIndex(item => item.IdempotencyKey).IsUnique();
+            feedEvent.HasIndex(item => item.SortKey);
+            feedEvent.HasIndex(item => new { item.ActorUserId, item.SortKey });
+            feedEvent.HasIndex(item => new { item.GroupId, item.SortKey });
+            feedEvent.Property(item => item.ActorUserId).HasMaxLength(450);
+            feedEvent.Property(item => item.EventType).HasMaxLength(32);
+            feedEvent.Property(item => item.Audience).HasMaxLength(16);
+            feedEvent.Property(item => item.ReferenceId).HasMaxLength(64);
+            feedEvent.Property(item => item.Subject).HasMaxLength(80);
+            feedEvent.Property(item => item.IdempotencyKey).HasMaxLength(160);
+            feedEvent.Property(item => item.SortKey).HasMaxLength(46);
+            feedEvent.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.ActorUserId).OnDelete(DeleteBehavior.Cascade);
+            feedEvent.HasOne<PrivateGroup>().WithMany().HasForeignKey(item => item.GroupId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<CosmeticItem>(cosmetic =>

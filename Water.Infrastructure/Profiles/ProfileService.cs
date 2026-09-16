@@ -6,7 +6,7 @@ using Water.Infrastructure.Persistence;
 
 namespace Water.Infrastructure.Profiles;
 
-public sealed class ProfileService(WaterDbContext dbContext) : IProfileService
+public sealed class ProfileService(WaterDbContext dbContext, TimeProvider timeProvider) : IProfileService
 {
     private static readonly HashSet<string> AllowedGoals =
     [
@@ -72,7 +72,7 @@ public sealed class ProfileService(WaterDbContext dbContext) : IProfileService
             profile.Update(request.Age, request.HeightCm, request.WeightKg, request.TimeZone, goals);
         }
 
-        var effectiveFrom = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, timeZone).Date);
+        var effectiveFrom = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), timeZone).Date);
         var hydrationGoal = await dbContext.HydrationGoals
             .SingleOrDefaultAsync(
                 item => item.UserId == userId && item.EffectiveFrom == effectiveFrom,

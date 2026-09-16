@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Water.Application.Habits;
 using Water.Domain.Habits;
 using Water.Domain.Progression;
+using Water.Domain.Feed;
 using Water.Infrastructure.Persistence;
 
 namespace Water.Infrastructure.Habits;
@@ -49,6 +50,14 @@ public sealed class AchievementService(
                     timeProvider.GetUtcNow(),
                     definition.RuleVersion);
                 dbContext.UserAchievements.Add(achievement);
+                dbContext.FeedEvents.Add(new FeedEvent(
+                    userId,
+                    "achievement-unlocked",
+                    "friends",
+                    definition.Code,
+                    definition.Code,
+                    $"achievement-unlocked:{userId}:{definition.Code}:v{definition.RuleVersion}",
+                    achievement.UnlockedAt));
                 unlocked.Add(definition.Code, achievement);
             }
 

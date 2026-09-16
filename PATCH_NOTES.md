@@ -2,11 +2,31 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
+## Etapa 4D — Feed de eventos significativos
+
+Data: 2026-09-16
+
+### Backend — `não commitado`
+
+- Feed autenticado e paginado por cursor para desbloqueios de conquistas e entrada em grupos, sem publicar registros de bebida.
+- Visibilidade calculada pelas relações atuais: somente amigos aceitos veem conquistas e somente membros atuais veem eventos do grupo.
+- Eventos criados na mesma transação da ação de origem, com chave idempotente única e ordenação estável.
+- Contrato público limitado ao perfil social, sem e-mail, dados físicos ou detalhes de hidratação.
+- Cálculo da vigência da meta alinhado ao `TimeProvider` da aplicação, evitando divergência de data entre perfil e demais serviços.
+- Migration `AddSignificantFeed` e testes de domínio, autenticação, privacidade, idempotência, paginação e mudança de visibilidade.
+
+### Frontend — `não commitado`
+
+- Nova aba Atividade com conquistas de amigos e entradas em grupos, textos em português e inglês.
+- Atualização por gesto, paginação explícita e remoção de duplicatas entre páginas.
+- Navegação do evento para a conquista ou o grupo relacionado e invalidação após ações que produzem eventos.
+- Teste da composição ordenada e sem duplicatas das páginas do feed.
+
 ## Etapa 4C — Convites e capacidade de grupos
 
 Data: 2026-09-15
 
-### Backend — `não commitado`
+### Backend — `c5e6046` (`4c`)
 
 - Limite autoritativo de dois grupos por usuário aplicado à criação, aceite de convite e inclusão direta de membros.
 - Convites de grupo reutilizáveis por sete dias, com token aleatório armazenado somente como hash, rotação e revogação pelo proprietário.
@@ -14,7 +34,7 @@ Data: 2026-09-15
 - Códigos estáveis para capacidade esgotada e convite indisponível, além de rate limiting social.
 - Migration `AddGroupInvitesAndCapacity` e testes de domínio, rotação, revogação, idempotência e limite de slots.
 
-### Frontend — `não commitado`
+### Frontend — `11f225d` (`4c`)
 
 - Indicador de uso dos dois slots e bloqueio visual da criação quando a capacidade está completa.
 - Geração, compartilhamento e revogação de link e QR code pelo proprietário.

@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Water.Application.Social;
 using Water.Domain.Social;
+using Water.Domain.Feed;
 using Water.Infrastructure.Persistence;
 
 namespace Water.Infrastructure.Social;
@@ -36,6 +37,7 @@ public sealed class GroupService(WaterDbContext dbContext, TimeProvider timeProv
         var group = new PrivateGroup(userId, request.Name, request.Description, now);
         dbContext.PrivateGroups.Add(group);
         dbContext.GroupMemberships.Add(new GroupMembership(group.Id, userId, "owner", now));
+        AddGroupJoinedEvent(group, userId, now);
         await dbContext.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
         return await MapAsync(group, userId, token);
@@ -68,6 +70,7 @@ public sealed class GroupService(WaterDbContext dbContext, TimeProvider timeProv
                 ((item.UserLowId == userId && item.UserHighId == memberId) || (item.UserLowId == memberId && item.UserHighId == userId)), token);
             if (!friendship) throw new GroupConflictException();
             dbContext.GroupMemberships.Add(new GroupMembership(groupId, memberId, "member", timeProvider.GetUtcNow()));
+            AddGroupJoinedEvent(group, memberId, timeProvider.GetUtcNow());
             await dbContext.SaveChangesAsync(token);
         }
         await transaction.CommitAsync(token);
@@ -123,6 +126,8 @@ public sealed class GroupService(WaterDbContext dbContext, TimeProvider timeProv
         {
             await EnsureCapacityAsync(userId, token);
             dbContext.GroupMemberships.Add(new GroupMembership(invite.GroupId, userId, "member", timeProvider.GetUtcNow()));
+            var invitedGroup = await dbContext.PrivateGroups.SingleAsync(item => item.Id == invite.GroupId, token);
+            AddGroupJoinedEvent(invitedGroup, userId, timeProvider.GetUtcNow());
             await dbContext.SaveChangesAsync(token);
         }
         await transaction.CommitAsync(token);
@@ -178,6 +183,16 @@ public sealed class GroupService(WaterDbContext dbContext, TimeProvider timeProv
     }
 
     private static string HashToken(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
+
+    private void AddGroupJoinedEvent(PrivateGroup group, string actorUserId, DateTimeOffset now) => dbContext.FeedEvents.Add(new FeedEvent(
+        actorUserId,
+        "group-joined",
+        "group",
+        group.Id.ToString(),
+        group.Name,
+        $"group-joined:{group.Id}:{actorUserId}",
+        now,
+        group.Id));
 
     private async Task<GroupDetailResponse> MapAsync(PrivateGroup group, string userId, CancellationToken token)
     {

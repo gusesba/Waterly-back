@@ -9,6 +9,7 @@ using Water.Api.Features.Achievements;
 using Water.Api.Features.Progression;
 using Water.Api.Features.Cosmetics;
 using Water.Api.Features.Social;
+using Water.Api.Features.Feed;
 using Water.Infrastructure;
 using Water.Infrastructure.Identity;
 
@@ -99,6 +100,7 @@ app.MapProgressionEndpoints();
 app.MapCosmeticEndpoints();
 app.MapFriendEndpoints(!app.Environment.IsEnvironment("Testing"));
 app.MapGroupEndpoints(!app.Environment.IsEnvironment("Testing"));
+app.MapFeedEndpoints(!app.Environment.IsEnvironment("Testing"));
 
 app.Run();
 
