@@ -591,6 +591,24 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Single(first.Items);
         Assert.Single(second!.Items);
         Assert.NotEqual(first.Items.Single().Id, second.Items.Single().Id);
+        var eventId = first.Items.Single().Id;
+        var water = await (await _client.PutAsJsonAsync($"/api/v1/feed/{eventId}/reactions/me", new SetFeedReactionRequest("water"))).Content.ReadFromJsonAsync<FeedReactionSummaryResponse>();
+        Assert.Equal(1, water!.Counts["water"]);
+        Assert.Equal("water", water.CurrentUserReaction);
+        var repeated = await (await _client.PutAsJsonAsync($"/api/v1/feed/{eventId}/reactions/me", new SetFeedReactionRequest("water"))).Content.ReadFromJsonAsync<FeedReactionSummaryResponse>();
+        Assert.Equal(1, repeated!.Counts["water"]);
+        var changed = await (await _client.PutAsJsonAsync($"/api/v1/feed/{eventId}/reactions/me", new SetFeedReactionRequest("fire"))).Content.ReadFromJsonAsync<FeedReactionSummaryResponse>();
+        Assert.False(changed!.Counts.ContainsKey("water"));
+        Assert.Equal(1, changed.Counts["fire"]);
+        var removed = await (await _client.DeleteAsync($"/api/v1/feed/{eventId}/reactions/me")).Content.ReadFromJsonAsync<FeedReactionSummaryResponse>();
+        Assert.Empty(removed!.Counts);
+        Assert.Null(removed.CurrentUserReaction);
+        (await _client.PutAsJsonAsync($"/api/v1/feed/{eventId}/reactions/me", new SetFeedReactionRequest("celebrate"))).EnsureSuccessStatusCode();
+        var reactedFeed = await _client.GetFromJsonAsync<FeedPageResponse>("/api/v1/feed");
+        var reactedEvent = reactedFeed!.Items.Single(item => item.Id == eventId);
+        Assert.Equal(1, reactedEvent.Reactions.Counts["celebrate"]);
+        Assert.Equal("celebrate", reactedEvent.Reactions.CurrentUserReaction);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.PutAsJsonAsync($"/api/v1/feed/{eventId}/reactions/me", new SetFeedReactionRequest("unknown"))).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await _client.GetAsync("/api/v1/feed?cursor=invalid")).StatusCode);
         var json = await _client.GetStringAsync("/api/v1/feed");
         Assert.DoesNotContain("email", json, StringComparison.OrdinalIgnoreCase);
@@ -598,10 +616,13 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", outsider.AccessToken);
         Assert.Empty((await _client.GetFromJsonAsync<FeedPageResponse>("/api/v1/feed"))!.Items);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.PutAsJsonAsync($"/api/v1/feed/{eventId}/reactions/me", new SetFeedReactionRequest("water"))).StatusCode);
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", alice.AccessToken);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.PutAsJsonAsync($"/api/v1/feed/{eventId}/reactions/me", new SetFeedReactionRequest("water"))).StatusCode);
         (await _client.DeleteAsync($"/api/v1/friends/{bobProfile.UserId}")).EnsureSuccessStatusCode();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bob.AccessToken);
         Assert.Empty((await _client.GetFromJsonAsync<FeedPageResponse>("/api/v1/feed"))!.Items);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.DeleteAsync($"/api/v1/feed/{eventId}/reactions/me")).StatusCode);
     }
 
     [Fact]
@@ -609,6 +630,9 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     {
         using var client = factory.CreateClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/feed")).StatusCode);
+        var eventId = Guid.NewGuid();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PutAsJsonAsync($"/api/v1/feed/{eventId}/reactions/me", new SetFeedReactionRequest("water"))).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.DeleteAsync($"/api/v1/feed/{eventId}/reactions/me")).StatusCode);
     }
 
     [Fact]

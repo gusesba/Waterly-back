@@ -13,4 +13,17 @@ public sealed class FeedEventTests
         Assert.Equal(46, item.SortKey.Length);
         Assert.Equal("first-goal", item.ReferenceId);
     }
+
+    [Fact]
+    public void Reaction_can_change_type_without_changing_its_identity()
+    {
+        var eventId = Guid.NewGuid();
+        var reaction = new FeedReaction(eventId, "user", "water", DateTimeOffset.UtcNow);
+
+        reaction.ChangeType("fire");
+
+        Assert.Equal(eventId, reaction.FeedEventId);
+        Assert.Equal("user", reaction.UserId);
+        Assert.Equal("fire", reaction.Type);
+    }
 }

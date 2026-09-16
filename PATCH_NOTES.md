@@ -2,11 +2,29 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 4D — Feed de eventos significativos
+## Etapa 4E — Reações no feed
 
 Data: 2026-09-16
 
 ### Backend — `não commitado`
+
+- Catálogo fechado de reações `water`, `celebrate` e `fire`, com uma reação por usuário e evento.
+- Endpoints idempotentes para definir, trocar e remover a reação do usuário atual.
+- Autorização pela visibilidade atual do evento, bloqueio de reação própria e respostas sem revelar os usuários que reagiram.
+- Contagens agregadas e reação atual incorporadas ao contrato paginado do feed.
+- Migration `AddFeedReactions` e testes de domínio, autenticação, validação, privacidade, troca e remoção.
+
+### Frontend — `não commitado`
+
+- Botões acessíveis de reação em cada evento, com contagem e destaque da seleção atual.
+- Atualização otimista para adicionar, trocar ou remover, com rollback em caso de falha e reconciliação com o servidor.
+- Textos de reação e falha em português e inglês, além de testes da atualização entre páginas.
+
+## Etapa 4D — Feed de eventos significativos
+
+Data: 2026-09-16
+
+### Backend — `c0d5f09` (`4d`)
 
 - Feed autenticado e paginado por cursor para desbloqueios de conquistas e entrada em grupos, sem publicar registros de bebida.
 - Visibilidade calculada pelas relações atuais: somente amigos aceitos veem conquistas e somente membros atuais veem eventos do grupo.
@@ -15,7 +33,7 @@ Data: 2026-09-16
 - Cálculo da vigência da meta alinhado ao `TimeProvider` da aplicação, evitando divergência de data entre perfil e demais serviços.
 - Migration `AddSignificantFeed` e testes de domínio, autenticação, privacidade, idempotência, paginação e mudança de visibilidade.
 
-### Frontend — `não commitado`
+### Frontend — `ec02025` (`4d`)
 
 - Nova aba Atividade com conquistas de amigos e entradas em grupos, textos em português e inglês.
 - Atualização por gesto, paginação explícita e remoção de duplicatas entre páginas.

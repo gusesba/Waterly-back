@@ -35,6 +35,7 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<GroupMembership> GroupMemberships => Set<GroupMembership>();
     public DbSet<GroupInvite> GroupInvites => Set<GroupInvite>();
     public DbSet<FeedEvent> FeedEvents => Set<FeedEvent>();
+    public DbSet<FeedReaction> FeedReactions => Set<FeedReaction>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -255,6 +256,16 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             feedEvent.Property(item => item.SortKey).HasMaxLength(46);
             feedEvent.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.ActorUserId).OnDelete(DeleteBehavior.Cascade);
             feedEvent.HasOne<PrivateGroup>().WithMany().HasForeignKey(item => item.GroupId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<FeedReaction>(reaction =>
+        {
+            reaction.HasKey(item => new { item.FeedEventId, item.UserId });
+            reaction.HasIndex(item => new { item.FeedEventId, item.Type });
+            reaction.Property(item => item.UserId).HasMaxLength(450);
+            reaction.Property(item => item.Type).HasMaxLength(16);
+            reaction.HasOne<FeedEvent>().WithMany().HasForeignKey(item => item.FeedEventId).OnDelete(DeleteBehavior.Cascade);
+            reaction.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<CosmeticItem>(cosmetic =>
