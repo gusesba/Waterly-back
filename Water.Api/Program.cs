@@ -12,6 +12,7 @@ using Water.Api.Features.Cosmetics;
 using Water.Api.Features.Social;
 using Water.Api.Features.Feed;
 using Water.Api.Features.Competition;
+using Water.Api.Features.Notifications;
 using Water.Infrastructure;
 using Water.Infrastructure.Identity;
 
@@ -107,6 +108,7 @@ app.MapBlockEndpoints(!app.Environment.IsEnvironment("Testing"));
 app.MapGroupEndpoints(!app.Environment.IsEnvironment("Testing"));
 app.MapFeedEndpoints(!app.Environment.IsEnvironment("Testing"));
 app.MapContestEndpoints(!app.Environment.IsEnvironment("Testing"));
+app.MapNotificationEndpoints(!app.Environment.IsEnvironment("Testing"));
 
 app.Run();
 

@@ -5,10 +5,11 @@ using Water.Domain.Competition;
 using Water.Domain.Feed;
 using Water.Domain.Progression;
 using Water.Infrastructure.Persistence;
+using Water.Application.Notifications;
 
 namespace Water.Infrastructure.Competition;
 
-public sealed class ContestRewardService(WaterDbContext dbContext, TimeProvider timeProvider) : IContestRewardService
+public sealed class ContestRewardService(WaterDbContext dbContext, TimeProvider timeProvider, IContestNotificationOutbox notificationOutbox) : IContestRewardService
 {
     public async Task<IReadOnlyCollection<Guid>> GetDueAsync(int batchSize, CancellationToken token) =>
         await (from finalization in dbContext.ContestFinalizations.AsNoTracking()
@@ -39,7 +40,7 @@ public sealed class ContestRewardService(WaterDbContext dbContext, TimeProvider 
         if (!definitions.ContainsKey(0)) throw new InvalidOperationException("Contest reward policy is incomplete.");
 
         var results = await dbContext.ContestResults.AsNoTracking()
-            .Where(item => item.ContestId == contestId && item.TotalScore > 0)
+            .Where(item => item.ContestId == contestId)
             .OrderBy(item => item.Position)
             .ThenBy(item => item.UserId)
             .ToArrayAsync(token);
@@ -50,22 +51,34 @@ public sealed class ContestRewardService(WaterDbContext dbContext, TimeProvider 
 
         foreach (var result in results)
         {
-            AddReward(result.UserId, definitions[0], "contest-participation", referenceId,
-                $"contest:{contestId:N}:participation:v{contest.RewardRuleVersion}", now);
-            if (result.Position is >= 1 and <= 3 && definitions.TryGetValue(result.Position, out var placement))
+            var dropsReward = 0;
+            var prestigeReward = 0;
+            int? medalPosition = null;
+            if (result.TotalScore > 0)
             {
-                AddReward(result.UserId, placement, "contest-placement", referenceId,
-                    $"contest:{contestId:N}:placement:{result.Position}:v{contest.RewardRuleVersion}", now);
-                dbContext.UserMedals.Add(new UserMedal(medal.Id, result.UserId, result.Position, contest.RewardRuleVersion, now));
-                dbContext.FeedEvents.Add(new FeedEvent(
-                    result.UserId,
-                    "contest-medal",
-                    "friends",
-                    referenceId,
-                    contest.Name,
-                    $"contest-medal:{contestId:N}:{result.UserId}:v{contest.RewardRuleVersion}",
-                    now));
+                AddReward(result.UserId, definitions[0], "contest-participation", referenceId,
+                    $"contest:{contestId:N}:participation:v{contest.RewardRuleVersion}", now);
+                dropsReward += definitions[0].DropsReward;
+                prestigeReward += definitions[0].PrestigeReward;
+                if (result.Position is >= 1 and <= 3 && definitions.TryGetValue(result.Position, out var placement))
+                {
+                    AddReward(result.UserId, placement, "contest-placement", referenceId,
+                        $"contest:{contestId:N}:placement:{result.Position}:v{contest.RewardRuleVersion}", now);
+                    dropsReward += placement.DropsReward;
+                    prestigeReward += placement.PrestigeReward;
+                    medalPosition = result.Position;
+                    dbContext.UserMedals.Add(new UserMedal(medal.Id, result.UserId, result.Position, contest.RewardRuleVersion, now));
+                    dbContext.FeedEvents.Add(new FeedEvent(
+                        result.UserId,
+                        "contest-medal",
+                        "friends",
+                        referenceId,
+                        contest.Name,
+                        $"contest-medal:{contestId:N}:{result.UserId}:v{contest.RewardRuleVersion}",
+                        now));
+                }
             }
+            await notificationOutbox.QueueResultAsync(result.UserId, contestId, contest.Name, result.Position, dropsReward, prestigeReward, medalPosition, contest.RewardRuleVersion, now, token);
         }
 
         dbContext.ContestRewardCheckpoints.Add(new ContestRewardCheckpoint(contestId, contest.RewardRuleVersion, now));

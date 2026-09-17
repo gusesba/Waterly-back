@@ -17,6 +17,12 @@ The API listens on `http://localhost:5004` in the HTTP development profile.
 The checked-in database password is only for the disposable local Docker instance. Configure the
 production `ConnectionStrings__Water` value through the deployment platform's secret store.
 
+## Contest push notifications
+
+Push delivery is disabled by default. Enable it with `PushNotifications__Enabled=true`. If enhanced
+Expo push security is enabled for the EAS project, configure `PushNotifications__ExpoAccessToken`
+through the deployment platform's secret store. Never commit that token.
+
 ## Verification
 
 ```powershell

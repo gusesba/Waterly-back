@@ -19,6 +19,10 @@ using Water.Application.Competition;
 using Water.Domain.Competition;
 using Water.Infrastructure.Identity;
 using Water.Infrastructure.Persistence;
+using Water.Application.Notifications;
+using Water.Domain.Notifications;
+using Water.Infrastructure.Notifications;
+using Microsoft.Extensions.Options;
 
 namespace Water.Tests.Integration;
 
@@ -745,6 +749,11 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
             await db.SaveChangesAsync();
         }
 
+        var notificationInstallationId = Guid.NewGuid();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessTokens[0]);
+        (await _client.PutAsJsonAsync($"/api/v1/notifications/installations/{notificationInstallationId}",
+            new UpsertDeviceInstallationRequest("ExponentPushToken[final-a]", "android", "pt-BR"))).EnsureSuccessStatusCode();
+
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var service = scope.ServiceProvider.GetRequiredService<IContestFinalizationService>();
@@ -765,6 +774,10 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
             Assert.Equal(6, await db.PrestigeLedgerEntries.CountAsync(item => item.ReferenceType == "contest" && item.ReferenceId == contest.Id.ToString()));
             var medalId = await db.MedalDefinitions.Where(item => item.ContestId == contest.Id).Select(item => item.Id).SingleAsync();
             Assert.Equal(3, await db.UserMedals.CountAsync(item => item.MedalDefinitionId == medalId));
+            var push = await db.PushNotificationMessages.Include(item => item.DeviceInstallation).SingleAsync(item => item.DeviceInstallationId == notificationInstallationId);
+            Assert.Equal("contest-result", push.EventType);
+            Assert.Contains("125 Drops", push.Body);
+            Assert.Contains(contest.Id.ToString(), push.DataJson);
         }
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessTokens[0]);
@@ -876,6 +889,44 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/api/v1/contests/{id}/leaderboard")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/medals")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync($"/api/v1/contests/{id}/join", new JoinContestRequest(Guid.NewGuid()))).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PutAsJsonAsync($"/api/v1/notifications/installations/{id}", new UpsertDeviceInstallationRequest("ExponentPushToken[token]", "android", "pt-BR"))).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.DeleteAsync($"/api/v1/notifications/installations/{id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Push_installation_is_owned_idempotent_and_disabled_after_invalid_receipt()
+    {
+        const string password = "waterly123";
+        var firstEmail = $"push-a-{Guid.NewGuid():N}@example.com";
+        var secondEmail = $"push-b-{Guid.NewGuid():N}@example.com";
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new { email = firstEmail, password });
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new { email = secondEmail, password });
+        var first = await LoginAsync(firstEmail, password);
+        var second = await LoginAsync(secondEmail, password);
+        var installationId = Guid.NewGuid();
+        var request = new UpsertDeviceInstallationRequest("ExponentPushToken[push-test]", "android", "pt-BR");
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", first.AccessToken);
+        (await _client.PutAsJsonAsync($"/api/v1/notifications/installations/{installationId}", request)).EnsureSuccessStatusCode();
+        (await _client.PutAsJsonAsync($"/api/v1/notifications/installations/{installationId}", request)).EnsureSuccessStatusCode();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", second.AccessToken);
+        Assert.Equal(HttpStatusCode.Conflict, (await _client.PutAsJsonAsync($"/api/v1/notifications/installations/{installationId}", request)).StatusCode);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+        var now = new DateTimeOffset(2026, 9, 15, 15, 0, 0, TimeSpan.Zero);
+        db.PushNotificationMessages.Add(new PushNotificationMessage(installationId, "contest-result", Guid.NewGuid().ToString(), "Result", "Body", "{}", "test-result", now));
+        await db.SaveChangesAsync();
+        var gateway = new TestPushGateway();
+        var options = Options.Create(new PushNotificationOptions { Enabled = true, BatchSize = 10, MaxAttempts = 3, ReceiptDelay = TimeSpan.FromSeconds(1) });
+        await new PushNotificationProcessor(db, gateway, options, new FixedTimeProvider(now)).ProcessAsync(CancellationToken.None);
+        await new PushNotificationProcessor(db, gateway, options, new FixedTimeProvider(now.AddMinutes(1))).ProcessAsync(CancellationToken.None);
+
+        var installation = await db.DeviceInstallations.SingleAsync(item => item.Id == installationId);
+        var message = await db.PushNotificationMessages.SingleAsync(item => item.DeviceInstallationId == installationId);
+        Assert.NotNull(installation.DisabledAt);
+        Assert.NotNull(message.CompletedAt);
+        Assert.Equal("DeviceNotRegistered", message.LastError);
     }
 
     [Fact]
@@ -1093,6 +1144,15 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(HttpStatusCode.NoContent, (await _client.DeleteAsync($"/api/v1/groups/{group.Id}/invite")).StatusCode);
         _client.DefaultRequestHeaders.Authorization = null;
         Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/api/v1/invites/group/{second.Token}")).StatusCode);
+    }
+
+    private sealed class TestPushGateway : IExpoPushGateway
+    {
+        public Task<IReadOnlyCollection<ExpoPushResult>> SendAsync(IReadOnlyCollection<ExpoPushEnvelope> messages, CancellationToken token) =>
+            Task.FromResult<IReadOnlyCollection<ExpoPushResult>>(messages.Select(_ => new ExpoPushResult("ok", "ticket-1", null, null)).ToArray());
+
+        public Task<IReadOnlyDictionary<string, ExpoPushResult>> GetReceiptsAsync(IReadOnlyCollection<string> ticketIds, CancellationToken token) =>
+            Task.FromResult<IReadOnlyDictionary<string, ExpoPushResult>>(ticketIds.ToDictionary(item => item, _ => new ExpoPushResult("error", null, "DeviceNotRegistered", "unregistered")));
     }
 
     private async Task<(string AccessToken, string RefreshToken)> LoginAsync(string email, string password)

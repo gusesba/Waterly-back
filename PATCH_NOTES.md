@@ -2,11 +2,29 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 5F — Recompensas e medalhas de concursos
+## Etapa 5G — Push de resultados de concursos
 
 Data: 2026-09-17
 
 ### Backend — `não commitado`
+
+- Cadastro autenticado e idempotente de instalações Expo por conta, plataforma e idioma, com desativação explícita e isolamento entre usuários.
+- Outbox transacional de resultados de concursos por instalação, deduplicada por concurso e versão da regra, incluindo participantes sem recompensa.
+- Worker configurável com envio em lotes ao Expo Push Service, retentativa progressiva, consulta de receipts e desativação automática de tokens `DeviceNotRegistered`.
+- Migration `AddPushNotificationOutbox`, configuração desabilitada por padrão e testes de autenticação, propriedade da instalação, idempotência, conteúdo da recompensa e token inválido.
+
+### Frontend — `não commitado`
+
+- Opt-in separado para novidades de concursos na tela de lembretes, sem alterar os lembretes locais existentes.
+- Registro e renovação do Expo Push Token por conta, desativação no opt-out/logout e tratamento de permissão negada, web e dispositivo não físico.
+- Notificações em primeiro plano e abertura do resultado diretamente no concurso após restauração da autenticação.
+- Dependência `expo-device`, textos em português e inglês e testes do fluxo de ativação/desativação.
+
+## Etapa 5F — Recompensas e medalhas de concursos
+
+Data: 2026-09-17
+
+### Backend — `d50bdda` (`5f`)
 
 - Regras versionadas de recompensa para concursos de 7 e 30 dias, com lançamentos separados de participação e colocação nos ledgers de Drops e Prestige.
 - Concessão transacional e idempotente após a finalização, restrita a pontuações positivas e com prêmio integral para todas as pessoas empatadas nas posições de pódio.
@@ -14,7 +32,7 @@ Data: 2026-09-17
 - Leaderboard final enriquecido com recompensas e medalha; histórico de progressão identifica o nome do concurso de origem.
 - Migration `AddContestRewardsAndMedals` e testes de reprocessamento, valores por posição, empate, pontuação zero, histórico, medalhas e autenticação.
 
-### Frontend — `não commitado`
+### Frontend — `c4561bf` (`5f`)
 
 - Ranking final mostra Drops, Prestige e medalha recebidos por participante.
 - Coleção de medalhas acessível pelo perfil e exibida na tela de progressão, com navegação de volta ao concurso.

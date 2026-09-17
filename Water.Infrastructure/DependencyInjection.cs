@@ -20,6 +20,8 @@ using Water.Application.Feed;
 using Water.Infrastructure.Feed;
 using Water.Application.Competition;
 using Water.Infrastructure.Competition;
+using Water.Application.Notifications;
+using Water.Infrastructure.Notifications;
 
 namespace Water.Infrastructure;
 
@@ -62,6 +64,10 @@ public static class DependencyInjection
         services.AddScoped<IContestFinalizationService, ContestFinalizationService>();
         services.AddScoped<IContestRewardService, ContestRewardService>();
         services.AddScoped<IMedalService, MedalService>();
+        services.AddScoped<IDeviceInstallationService, DeviceInstallationService>();
+        services.AddScoped<IContestNotificationOutbox, ContestNotificationOutbox>();
+        services.AddScoped<PushNotificationProcessor>();
+        services.AddHttpClient<IExpoPushGateway, ExpoPushGateway>(client => client.BaseAddress = new Uri("https://exp.host/"));
         services.AddOptions<DailyClosureOptions>()
             .Bind(configuration.GetSection(DailyClosureOptions.SectionName))
             .Validate(options => options.Interval > TimeSpan.Zero, "DailyClosure interval must be positive.")
@@ -74,6 +80,14 @@ public static class DependencyInjection
             .Validate(options => options.BatchSize is > 0 and <= 100, "ContestClosure batch size must be between 1 and 100.")
             .ValidateOnStart();
         services.AddHostedService<ContestClosureWorker>();
+        services.AddOptions<PushNotificationOptions>()
+            .Bind(configuration.GetSection(PushNotificationOptions.SectionName))
+            .Validate(options => options.Interval > TimeSpan.Zero, "PushNotifications interval must be positive.")
+            .Validate(options => options.BatchSize is > 0 and <= 100, "PushNotifications batch size must be between 1 and 100.")
+            .Validate(options => options.MaxAttempts is > 0 and <= 20, "PushNotifications max attempts must be between 1 and 20.")
+            .Validate(options => options.ReceiptDelay > TimeSpan.Zero, "PushNotifications receipt delay must be positive.")
+            .ValidateOnStart();
+        services.AddHostedService<PushNotificationWorker>();
         services.AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 

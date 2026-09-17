@@ -8,6 +8,7 @@ using Water.Domain.Cosmetics;
 using Water.Domain.Social;
 using Water.Domain.Feed;
 using Water.Domain.Competition;
+using Water.Domain.Notifications;
 using Water.Infrastructure.Identity;
 
 namespace Water.Infrastructure.Persistence;
@@ -47,6 +48,8 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<ContestRewardCheckpoint> ContestRewardCheckpoints => Set<ContestRewardCheckpoint>();
     public DbSet<MedalDefinition> MedalDefinitions => Set<MedalDefinition>();
     public DbSet<UserMedal> UserMedals => Set<UserMedal>();
+    public DbSet<DeviceInstallation> DeviceInstallations => Set<DeviceInstallation>();
+    public DbSet<PushNotificationMessage> PushNotificationMessages => Set<PushNotificationMessage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -287,6 +290,34 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             reaction.Property(item => item.Type).HasMaxLength(16);
             reaction.HasOne<FeedEvent>().WithMany().HasForeignKey(item => item.FeedEventId).OnDelete(DeleteBehavior.Cascade);
             reaction.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<DeviceInstallation>(installation =>
+        {
+            installation.HasKey(item => item.Id);
+            installation.HasIndex(item => item.UserId);
+            installation.HasIndex(item => item.ExpoPushToken);
+            installation.Property(item => item.UserId).HasMaxLength(450);
+            installation.Property(item => item.ExpoPushToken).HasMaxLength(256);
+            installation.Property(item => item.Platform).HasMaxLength(16);
+            installation.Property(item => item.Locale).HasMaxLength(16);
+            installation.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<PushNotificationMessage>(message =>
+        {
+            message.HasKey(item => item.Id);
+            message.HasIndex(item => new { item.DeviceInstallationId, item.IdempotencyKey }).IsUnique();
+            message.HasIndex(item => new { item.CompletedAt, item.NextAttemptAt });
+            message.Property(item => item.EventType).HasMaxLength(32);
+            message.Property(item => item.ReferenceId).HasMaxLength(64);
+            message.Property(item => item.Title).HasMaxLength(80);
+            message.Property(item => item.Body).HasMaxLength(240);
+            message.Property(item => item.DataJson).HasMaxLength(512);
+            message.Property(item => item.IdempotencyKey).HasMaxLength(160);
+            message.Property(item => item.TicketId).HasMaxLength(128);
+            message.Property(item => item.LastError).HasMaxLength(160);
+            message.HasOne(item => item.DeviceInstallation).WithMany().HasForeignKey(item => item.DeviceInstallationId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<Contest>(contest =>

@@ -22,6 +22,7 @@ public sealed class WaterApiFactory : WebApplicationFactory<Program>, IAsyncLife
             {
                 ["DailyClosure:Enabled"] = "false",
                 ["ContestClosure:Enabled"] = "false",
+                ["PushNotifications:Enabled"] = "false",
                 ["Administration:ContestAdminEmails:0"] = "contest-admin@example.com"
             }));
         builder.ConfigureServices(services =>
