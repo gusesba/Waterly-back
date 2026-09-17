@@ -16,6 +16,7 @@ public static class ContestEndpoints
         group.MapGet("/contests/capabilities", GetCapabilitiesAsync);
         group.MapGet("/contests/{contestId:guid}", GetAsync);
         group.MapGet("/contests/{contestId:guid}/score", GetScoreAsync);
+        group.MapGet("/contests/{contestId:guid}/leaderboard", GetLeaderboardAsync);
         group.MapPost("/contests/{contestId:guid}/join", JoinAsync);
         group.MapPost("/admin/contests", CreateAsync).RequireAuthorization(AdminPolicy);
         return endpoints;
@@ -31,6 +32,19 @@ public static class ContestEndpoints
     {
         try { return TypedResults.Ok(await service.GetAsync(UserId(principal), contestId, token)); }
         catch (ContestNotFoundException) { return TypedResults.NotFound(); }
+        catch (Water.Application.Hydration.HydrationProfileRequiredException) { return TypedResults.Conflict(); }
+    }
+    private static async Task<IResult> GetLeaderboardAsync(
+        Guid contestId,
+        int page,
+        int pageSize,
+        ClaimsPrincipal principal,
+        IContestLeaderboardService service,
+        CancellationToken token)
+    {
+        try { return TypedResults.Ok(await service.GetAsync(UserId(principal), contestId, page == 0 ? 1 : page, pageSize == 0 ? 20 : pageSize, token)); }
+        catch (ContestNotFoundException) { return TypedResults.NotFound(); }
+        catch (ContestValidationException) { return TypedResults.BadRequest(); }
         catch (Water.Application.Hydration.HydrationProfileRequiredException) { return TypedResults.Conflict(); }
     }
     private static async Task<IResult> JoinAsync(Guid contestId, JoinContestRequest request, ClaimsPrincipal principal, IContestService service, CancellationToken token) =>

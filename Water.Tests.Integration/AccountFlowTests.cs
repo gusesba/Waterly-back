@@ -642,6 +642,64 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     }
 
     [Fact]
+    public async Task Contest_leaderboard_is_global_private_paginated_and_shares_tied_positions()
+    {
+        const string password = "waterly123";
+        var users = new[]
+        {
+            ($"leader-a-{Guid.NewGuid():N}@example.com", "leader_a", "Leader A", 1000),
+            ($"leader-b-{Guid.NewGuid():N}@example.com", "leader_b", "Leader B", 500),
+            ($"leader-c-{Guid.NewGuid():N}@example.com", (string?)null, (string?)null, 500)
+        };
+        var tokens = new List<string>();
+        foreach (var (email, username, displayName, volume) in users)
+        {
+            await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+            var session = await LoginAsync(email, password);
+            tokens.Add(session.AccessToken);
+            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
+            (await _client.PutAsJsonAsync("/api/v1/me/onboarding", new CompleteOnboardingRequest(28, 178, 74.5m, 1000, ["habit"], "UTC"))).EnsureSuccessStatusCode();
+            if (username is not null)
+                (await _client.PutAsJsonAsync("/api/v1/profile", new UpdatePublicProfileRequest(username, displayName!, null))).EnsureSuccessStatusCode();
+        }
+
+        Contest contest;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            contest = new Contest("Leaderboard", new DateOnly(2026, 9, 15), 7, new DateTimeOffset(2026, 9, 15, 0, 0, 0, TimeSpan.Zero));
+            db.Contests.Add(contest);
+            await db.SaveChangesAsync();
+        }
+
+        for (var index = 0; index < users.Length; index++)
+        {
+            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens[index]);
+            (await _client.PostAsJsonAsync($"/api/v1/contests/{contest.Id}/join", new JoinContestRequest(Guid.NewGuid()))).EnsureSuccessStatusCode();
+            (await _client.PostAsJsonAsync("/api/v1/hydration/entries", new AddDrinkEntryRequest(
+                Guid.NewGuid(), users[index].Item4, new DateTimeOffset(2026, 9, 15, 14, 0, 0, TimeSpan.Zero), "UTC"))).EnsureSuccessStatusCode();
+        }
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens[1]);
+        var leaderboard = await _client.GetFromJsonAsync<ContestLeaderboardResponse>($"/api/v1/contests/{contest.Id}/leaderboard?page=1&pageSize=10");
+        Assert.NotNull(leaderboard);
+        Assert.Equal(3, leaderboard.TotalCount);
+        Assert.False(leaderboard.IsFinal);
+        Assert.Equal([1, 2, 2], leaderboard.Entries.Select(item => item.Position));
+        Assert.Equal(100m, leaderboard.Entries.First().TotalScore);
+        Assert.Contains(leaderboard.Entries, item => item.IsCurrentUser && item.Username == "leader_b");
+        Assert.Contains(leaderboard.Entries, item => item.Username is null && item.DisplayName is null);
+
+        var secondPage = await _client.GetFromJsonAsync<ContestLeaderboardResponse>($"/api/v1/contests/{contest.Id}/leaderboard?page=2&pageSize=2");
+        Assert.NotNull(secondPage);
+        Assert.Single(secondPage.Entries);
+        Assert.Equal(2, secondPage.Entries.Single().Position);
+        var json = await _client.GetStringAsync($"/api/v1/contests/{contest.Id}/leaderboard");
+        Assert.DoesNotContain("email", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("weight", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Only_configured_administrator_can_publish_global_contests()
     {
         const string password = "waterly123";
@@ -682,6 +740,7 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/admin/contests", new CreateContestRequest("Contest", new DateOnly(2026, 9, 16), 7))).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/api/v1/contests/{id}")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/api/v1/contests/{id}/score")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/api/v1/contests/{id}/leaderboard")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync($"/api/v1/contests/{id}/join", new JoinContestRequest(Guid.NewGuid()))).StatusCode);
     }
 

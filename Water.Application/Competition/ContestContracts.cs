@@ -10,6 +10,19 @@ public sealed record JoinContestRequest(Guid ClientOperationId);
 public sealed record ContestCapabilitiesResponse(bool CanManageContests);
 public sealed record ContestDailyScoreResponse(DateOnly Date, int DailyTargetMl, int HydrationMl, decimal Score, bool IsFinal);
 public sealed record ContestScoreResponse(decimal TotalScore, decimal MaximumScore, IReadOnlyCollection<ContestDailyScoreResponse> Days);
+public sealed record ContestLeaderboardEntryResponse(
+    int Position,
+    string? Username,
+    string? DisplayName,
+    decimal TotalScore,
+    int ScoredDays,
+    bool IsCurrentUser);
+public sealed record ContestLeaderboardResponse(
+    IReadOnlyCollection<ContestLeaderboardEntryResponse> Entries,
+    int TotalCount,
+    int Page,
+    int PageSize,
+    bool IsFinal);
 public sealed record ContestResponse(
     Guid Id,
     string Name,
@@ -33,7 +46,13 @@ public interface IContestService
 public interface IContestScoreService
 {
     Task<ContestScoreResponse> GetAsync(string userId, Guid contestId, CancellationToken token);
+    Task RefreshContestAsync(Guid contestId, CancellationToken token);
     Task FinalizeThroughAsync(string userId, DateOnly closeThrough, CancellationToken token);
+}
+
+public interface IContestLeaderboardService
+{
+    Task<ContestLeaderboardResponse> GetAsync(string userId, Guid contestId, int page, int pageSize, CancellationToken token);
 }
 
 public sealed class ContestNotFoundException : Exception;

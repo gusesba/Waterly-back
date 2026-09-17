@@ -58,6 +58,7 @@ public static class DependencyInjection
         services.AddScoped<IFeedService, FeedService>();
         services.AddScoped<IContestService, ContestService>();
         services.AddScoped<IContestScoreService, ContestScoreService>();
+        services.AddScoped<IContestLeaderboardService, ContestLeaderboardService>();
         services.AddOptions<DailyClosureOptions>()
             .Bind(configuration.GetSection(DailyClosureOptions.SectionName))
             .Validate(options => options.Interval > TimeSpan.Zero, "DailyClosure interval must be positive.")

@@ -29,6 +29,17 @@ public sealed class ContestScoreService(WaterDbContext dbContext, IDailyHydratio
                 await RefreshAsync(contest, participant, closeThrough, closeThrough, token);
     }
 
+    public async Task RefreshContestAsync(Guid contestId, CancellationToken token)
+    {
+        var contest = await dbContext.Contests.SingleOrDefaultAsync(item => item.Id == contestId, token) ?? throw new ContestNotFoundException();
+        var participants = await dbContext.ContestParticipants.Where(item => item.ContestId == contestId).ToArrayAsync(token);
+        foreach (var participant in participants)
+        {
+            var today = await LocalTodayAsync(participant.UserId, token);
+            await RefreshAsync(contest, participant, today, today.AddDays(-1), token);
+        }
+    }
+
     private async Task RefreshAsync(Contest contest, ContestParticipant participant, DateOnly through, DateOnly finalizeThrough, CancellationToken token)
     {
         await projectionService.RebuildAsync(participant.UserId, token);
