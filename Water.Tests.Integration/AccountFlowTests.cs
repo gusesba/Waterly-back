@@ -714,7 +714,8 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         var users = new[]
         {
             ($"final-a-{Guid.NewGuid():N}@example.com", "final_a", "Final A", 1000),
-            ($"final-b-{Guid.NewGuid():N}@example.com", "final_b", "Final B", 500)
+            ($"final-b-{Guid.NewGuid():N}@example.com", "final_b", "Final B", 500),
+            ($"final-c-{Guid.NewGuid():N}@example.com", "final_c", "Final C", 500)
         };
         var accessTokens = new List<string>();
         var userIds = new List<string>();
@@ -752,6 +753,20 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
             Assert.True(await service.FinalizeAsync(contest.Id, CancellationToken.None));
         }
 
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<IContestRewardService>();
+            Assert.Contains(contest.Id, await service.GetDueAsync(20, CancellationToken.None));
+            await service.GrantAsync(contest.Id, CancellationToken.None);
+            await service.GrantAsync(contest.Id, CancellationToken.None);
+            var db = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            Assert.Single(await db.ContestRewardCheckpoints.Where(item => item.ContestId == contest.Id).ToArrayAsync());
+            Assert.Equal(6, await db.DropsLedgerEntries.CountAsync(item => item.ReferenceType == "contest" && item.ReferenceId == contest.Id.ToString()));
+            Assert.Equal(6, await db.PrestigeLedgerEntries.CountAsync(item => item.ReferenceType == "contest" && item.ReferenceId == contest.Id.ToString()));
+            var medalId = await db.MedalDefinitions.Where(item => item.ContestId == contest.Id).Select(item => item.Id).SingleAsync();
+            Assert.Equal(3, await db.UserMedals.CountAsync(item => item.MedalDefinitionId == medalId));
+        }
+
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessTokens[0]);
         (await _client.PutAsJsonAsync("/api/v1/profile", new UpdatePublicProfileRequest("renamed_a", "Renamed A", null))).EnsureSuccessStatusCode();
         await using (var scope = factory.Services.CreateAsyncScope())
@@ -760,16 +775,27 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
             db.DrinkEntries.Add(new DrinkEntry(userIds[1], Guid.NewGuid(), 500, new DateTimeOffset(2026, 9, 14, 15, 0, 0, TimeSpan.Zero), "UTC"));
             await db.SaveChangesAsync();
             Assert.Equal(1, await db.ContestFinalizations.CountAsync(item => item.ContestId == contest.Id));
-            Assert.Equal(2, await db.ContestResults.CountAsync(item => item.ContestId == contest.Id));
+            Assert.Equal(3, await db.ContestResults.CountAsync(item => item.ContestId == contest.Id));
         }
 
         var leaderboard = await _client.GetFromJsonAsync<ContestLeaderboardResponse>($"/api/v1/contests/{contest.Id}/leaderboard");
         Assert.NotNull(leaderboard);
         Assert.True(leaderboard.IsFinal);
-        Assert.Equal([1, 2], leaderboard.Entries.Select(item => item.Position));
-        Assert.Equal([100m, 50m], leaderboard.Entries.Select(item => item.TotalScore));
+        Assert.Equal([1, 2, 2], leaderboard.Entries.Select(item => item.Position));
+        Assert.Equal([100m, 50m, 50m], leaderboard.Entries.Select(item => item.TotalScore));
+        Assert.Equal(125, leaderboard.Entries.Single(item => item.Position == 1).DropsReward);
+        Assert.All(leaderboard.Entries.Where(item => item.Position == 2), item => Assert.Equal(85, item.DropsReward));
+        Assert.All(leaderboard.Entries.Where(item => item.Position == 2), item => Assert.Equal(2, item.MedalPosition));
         Assert.Contains(leaderboard.Entries, item => item.Username == "final_a" && item.DisplayName == "Final A");
         Assert.DoesNotContain(leaderboard.Entries, item => item.Username == "renamed_a");
+
+        var medals = await _client.GetFromJsonAsync<MedalResponse[]>("/api/v1/medals");
+        Assert.NotNull(medals);
+        Assert.Contains(medals, item => item.ContestId == contest.Id && item.Name == "Final contest" && item.Position == 1);
+        var wallet = await _client.GetFromJsonAsync<ProgressionBalanceResponse>("/api/v1/wallet");
+        Assert.NotNull(wallet);
+        Assert.Equal(125, wallet.Entries.Where(item => item.ReferenceId == contest.Id.ToString()).Sum(item => item.Amount));
+        Assert.All(wallet.Entries.Where(item => item.ReferenceId == contest.Id.ToString()), item => Assert.Equal("Final contest", item.ReferenceLabel));
 
         Contest emptyContest;
         await using (var scope = factory.Services.CreateAsyncScope())
@@ -780,6 +806,28 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
             await db.SaveChangesAsync();
             Assert.True(await scope.ServiceProvider.GetRequiredService<IContestFinalizationService>().FinalizeAsync(emptyContest.Id, CancellationToken.None));
             Assert.Equal(0, (await db.ContestFinalizations.SingleAsync(item => item.ContestId == emptyContest.Id)).ParticipantCount);
+        }
+
+        var zeroEmail = $"zero-score-{Guid.NewGuid():N}@example.com";
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new { email = zeroEmail, password });
+        var zeroSession = await LoginAsync(zeroEmail, password);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", zeroSession.AccessToken);
+        (await _client.PutAsJsonAsync("/api/v1/me/onboarding", new CompleteOnboardingRequest(28, 178, 74.5m, 1000, ["habit"], "UTC"))).EnsureSuccessStatusCode();
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            var zeroUserId = await db.Users.Where(item => item.Email == zeroEmail).Select(item => item.Id).SingleAsync();
+            var zeroContest = new Contest("Zero score final", new DateOnly(2026, 9, 8), 7, new DateTimeOffset(2026, 9, 8, 0, 0, 0, TimeSpan.Zero));
+            db.Contests.Add(zeroContest);
+            db.HydrationGoals.Add(new HydrationGoal(zeroUserId, 1000, new DateOnly(2026, 9, 14)));
+            db.ContestParticipants.Add(new ContestParticipant(zeroContest.Id, zeroUserId, Guid.NewGuid(), new DateTimeOffset(2026, 9, 14, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 9, 14)));
+            await db.SaveChangesAsync();
+            Assert.True(await scope.ServiceProvider.GetRequiredService<IContestFinalizationService>().FinalizeAsync(zeroContest.Id, CancellationToken.None));
+            await scope.ServiceProvider.GetRequiredService<IContestRewardService>().GrantAsync(zeroContest.Id, CancellationToken.None);
+            Assert.Equal(0m, (await db.ContestResults.SingleAsync(item => item.ContestId == zeroContest.Id)).TotalScore);
+            Assert.False(await db.DropsLedgerEntries.AnyAsync(item => item.ReferenceType == "contest" && item.ReferenceId == zeroContest.Id.ToString()));
+            var zeroMedalId = await db.MedalDefinitions.Where(item => item.ContestId == zeroContest.Id).Select(item => item.Id).SingleAsync();
+            Assert.False(await db.UserMedals.AnyAsync(item => item.MedalDefinitionId == zeroMedalId));
         }
     }
 
@@ -811,6 +859,7 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(new DateOnly(2026, 9, 23), created.EndsOn);
         Assert.Equal(100, created.DailyScoreCap);
         Assert.Equal(1, created.ScoringRuleVersion);
+        Assert.Equal(1, created.RewardRuleVersion);
         Assert.Contains((await _client.GetFromJsonAsync<ContestResponse[]>("/api/v1/contests"))!, item => item.Id == created.Id);
     }
 
@@ -825,6 +874,7 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/api/v1/contests/{id}")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/api/v1/contests/{id}/score")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/api/v1/contests/{id}/leaderboard")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/medals")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync($"/api/v1/contests/{id}/join", new JoinContestRequest(Guid.NewGuid()))).StatusCode);
     }
 

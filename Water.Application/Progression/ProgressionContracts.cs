@@ -6,6 +6,7 @@ public sealed record ProgressionEntryResponse(
     string EntryType,
     string ReferenceType,
     string ReferenceId,
+    string? ReferenceLabel,
     DateTimeOffset CreatedAt);
 
 public sealed record ProgressionBalanceResponse(

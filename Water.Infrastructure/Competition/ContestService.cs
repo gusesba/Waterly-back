@@ -56,7 +56,7 @@ public sealed class ContestService(WaterDbContext dbContext, TimeProvider timePr
         var today = Today();
         return contests.Select(item => new ContestResponse(
             item.Id, item.Name, item.StartsOn, item.EndsOn, item.DurationDays,
-            item.ScoringRuleVersion, item.DailyScoreCap, item.Status(today),
+            item.ScoringRuleVersion, item.RewardRuleVersion, item.DailyScoreCap, item.Status(today),
             participants.Count(participant => participant.ContestId == item.Id),
             participants.Any(participant => participant.ContestId == item.Id && participant.UserId == userId))).ToArray();
     }

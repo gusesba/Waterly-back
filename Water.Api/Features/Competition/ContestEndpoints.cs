@@ -17,6 +17,7 @@ public static class ContestEndpoints
         group.MapGet("/contests/{contestId:guid}", GetAsync);
         group.MapGet("/contests/{contestId:guid}/score", GetScoreAsync);
         group.MapGet("/contests/{contestId:guid}/leaderboard", GetLeaderboardAsync);
+        group.MapGet("/medals", GetMedalsAsync);
         group.MapPost("/contests/{contestId:guid}/join", JoinAsync);
         group.MapPost("/admin/contests", CreateAsync).RequireAuthorization(AdminPolicy);
         return endpoints;
@@ -47,6 +48,8 @@ public static class ContestEndpoints
         catch (ContestValidationException) { return TypedResults.BadRequest(); }
         catch (Water.Application.Hydration.HydrationProfileRequiredException) { return TypedResults.Conflict(); }
     }
+    private static async Task<IResult> GetMedalsAsync(ClaimsPrincipal principal, IMedalService service, CancellationToken token) =>
+        TypedResults.Ok(await service.GetAsync(UserId(principal), token));
     private static async Task<IResult> JoinAsync(Guid contestId, JoinContestRequest request, ClaimsPrincipal principal, IContestService service, CancellationToken token) =>
         await Result(() => service.JoinAsync(UserId(principal), contestId, request.ClientOperationId, token));
     private static async Task<IResult> CreateAsync(CreateContestRequest request, ClaimsPrincipal principal, IContestService service, CancellationToken token)

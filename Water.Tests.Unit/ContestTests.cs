@@ -12,6 +12,7 @@ public sealed class ContestTests
         Assert.Equal("Seven days", contest.Name);
         Assert.Equal(new DateOnly(2026, 9, 23), contest.EndsOn);
         Assert.Equal(1, contest.ScoringRuleVersion);
+        Assert.Equal(1, contest.RewardRuleVersion);
         Assert.Equal(100, contest.DailyScoreCap);
         Assert.Equal("upcoming", contest.Status(new DateOnly(2026, 9, 15)));
         Assert.Equal("active", contest.Status(new DateOnly(2026, 9, 16)));

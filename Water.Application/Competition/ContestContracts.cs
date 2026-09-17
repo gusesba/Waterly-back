@@ -17,6 +17,9 @@ public sealed record ContestLeaderboardEntryResponse(
     decimal TotalScore,
     int ScoredDays,
     bool IsTied,
+    int DropsReward,
+    int PrestigeReward,
+    int? MedalPosition,
     bool IsCurrentUser);
 public sealed record ContestLeaderboardResponse(
     IReadOnlyCollection<ContestLeaderboardEntryResponse> Entries,
@@ -31,6 +34,7 @@ public sealed record ContestResponse(
     DateOnly EndsOn,
     int DurationDays,
     int ScoringRuleVersion,
+    int RewardRuleVersion,
     int DailyScoreCap,
     string Status,
     int ParticipantCount,
@@ -60,6 +64,27 @@ public interface IContestFinalizationService
 {
     Task<IReadOnlyCollection<Guid>> GetDueAsync(int batchSize, CancellationToken token);
     Task<bool> FinalizeAsync(Guid contestId, CancellationToken token);
+}
+
+public interface IContestRewardService
+{
+    Task<IReadOnlyCollection<Guid>> GetDueAsync(int batchSize, CancellationToken token);
+    Task GrantAsync(Guid contestId, CancellationToken token);
+}
+
+public sealed record MedalResponse(
+    Guid Id,
+    Guid ContestId,
+    string Code,
+    string Name,
+    DateOnly StartsOn,
+    DateOnly EndsOn,
+    int Position,
+    DateTimeOffset AwardedAt);
+
+public interface IMedalService
+{
+    Task<IReadOnlyCollection<MedalResponse>> GetAsync(string userId, CancellationToken token);
 }
 
 public sealed class ContestNotFoundException : Exception;

@@ -13,6 +13,7 @@ public sealed class Contest
         EndsOn = startsOn.AddDays(durationDays);
         DurationDays = durationDays;
         ScoringRuleVersion = 1;
+        RewardRuleVersion = 1;
         DailyScoreCap = 100;
         CreatedAt = createdAt;
     }
@@ -23,6 +24,7 @@ public sealed class Contest
     public DateOnly EndsOn { get; private set; }
     public int DurationDays { get; private set; }
     public int ScoringRuleVersion { get; private set; }
+    public int RewardRuleVersion { get; private set; }
     public int DailyScoreCap { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 

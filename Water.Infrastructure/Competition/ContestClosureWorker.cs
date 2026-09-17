@@ -42,5 +42,19 @@ public sealed class ContestClosureWorker(
             catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
             catch (Exception exception) { logger.LogError(exception, "Contest closure failed for {ContestId}", contestId); }
         }
+
+        IReadOnlyCollection<Guid> rewardContestIds;
+        using (var scope = scopeFactory.CreateScope())
+            rewardContestIds = await scope.ServiceProvider.GetRequiredService<IContestRewardService>().GetDueAsync(options.Value.BatchSize, token);
+        foreach (var contestId in rewardContestIds)
+        {
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<IContestRewardService>().GrantAsync(contestId, token);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+            catch (Exception exception) { logger.LogError(exception, "Contest rewards failed for {ContestId}", contestId); }
+        }
     }
 }

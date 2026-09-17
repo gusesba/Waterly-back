@@ -59,6 +59,9 @@ public sealed class ContestLeaderboardService(
             item.TotalScore,
             item.ScoredDays,
             ties[item.TotalScore],
+            0,
+            0,
+            null,
             item.UserId == userId)).ToArray();
         var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
         var hasProvisionalScore = await dbContext.ContestDailyScores.AsNoTracking()
@@ -83,6 +86,21 @@ public sealed class ContestLeaderboardService(
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToArrayAsync(token);
+        var userIds = rows.Select(item => item.UserId).ToArray();
+        var referenceId = contestId.ToString();
+        var drops = await dbContext.DropsLedgerEntries.AsNoTracking()
+            .Where(item => userIds.Contains(item.UserId) && item.ReferenceType == "contest" && item.ReferenceId == referenceId)
+            .GroupBy(item => item.UserId)
+            .ToDictionaryAsync(group => group.Key, group => group.Sum(item => item.Amount), token);
+        var prestige = await dbContext.PrestigeLedgerEntries.AsNoTracking()
+            .Where(item => userIds.Contains(item.UserId) && item.ReferenceType == "contest" && item.ReferenceId == referenceId)
+            .GroupBy(item => item.UserId)
+            .ToDictionaryAsync(group => group.Key, group => group.Sum(item => item.Amount), token);
+        var medalPositions = await (from userMedal in dbContext.UserMedals.AsNoTracking()
+                                    join definition in dbContext.MedalDefinitions.AsNoTracking() on userMedal.MedalDefinitionId equals definition.Id
+                                    where definition.ContestId == contestId && userIds.Contains(userMedal.UserId)
+                                    select new { userMedal.UserId, userMedal.Position })
+            .ToDictionaryAsync(item => item.UserId, item => item.Position, token);
         return new ContestLeaderboardResponse(rows.Select(item => new ContestLeaderboardEntryResponse(
             item.Position,
             item.Username,
@@ -90,6 +108,9 @@ public sealed class ContestLeaderboardService(
             item.TotalScore,
             item.ScoredDays,
             item.IsTied,
+            drops.GetValueOrDefault(item.UserId),
+            prestige.GetValueOrDefault(item.UserId),
+            medalPositions.TryGetValue(item.UserId, out var medalPosition) ? medalPosition : null,
             item.UserId == userId)).ToArray(), totalCount, page, pageSize, true);
     }
 }

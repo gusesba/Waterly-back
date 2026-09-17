@@ -2,11 +2,30 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 5E — Encerramento e resultados imutáveis de concursos
+## Etapa 5F — Recompensas e medalhas de concursos
 
 Data: 2026-09-17
 
 ### Backend — `não commitado`
+
+- Regras versionadas de recompensa para concursos de 7 e 30 dias, com lançamentos separados de participação e colocação nos ledgers de Drops e Prestige.
+- Concessão transacional e idempotente após a finalização, restrita a pontuações positivas e com prêmio integral para todas as pessoas empatadas nas posições de pódio.
+- Medalhas persistidas por concurso e usuário, evento social de medalha e endpoint autenticado `GET /api/v1/medals`.
+- Leaderboard final enriquecido com recompensas e medalha; histórico de progressão identifica o nome do concurso de origem.
+- Migration `AddContestRewardsAndMedals` e testes de reprocessamento, valores por posição, empate, pontuação zero, histórico, medalhas e autenticação.
+
+### Frontend — `não commitado`
+
+- Ranking final mostra Drops, Prestige e medalha recebidos por participante.
+- Coleção de medalhas acessível pelo perfil e exibida na tela de progressão, com navegação de volta ao concurso.
+- Histórico diferencia recompensa de participação e de colocação; feed renderiza medalhas e abre o concurso correspondente.
+- Contratos e textos em português e inglês atualizados, com validação de TypeScript, lint e testes.
+
+## Etapa 5E — Encerramento e resultados imutáveis de concursos
+
+Data: 2026-09-17
+
+### Backend — `748603c` (`5e`)
 
 - Finalização global de concursos por worker configurável, executada somente após todos os participantes ultrapassarem localmente o último dia elegível.
 - Snapshot transacional e idempotente da finalização e dos resultados individuais, incluindo posição, pontuação, dias pontuados, empate e perfil público exibido.
@@ -14,7 +33,7 @@ Data: 2026-09-17
 - Posições competitivas compartilhadas em empates e suporte a encerramento válido sem participantes.
 - Migration `AddContestFinalizationAndResults` e testes de reprocessamento, imutabilidade, perfil congelado, classificação e concurso vazio.
 
-### Frontend — `não commitado`
+### Frontend — `e5c689e` (`5e`)
 
 - Pódio exibido em resultados finais para todas as pessoas nas posições 1, 2 e 3, incluindo empates.
 - Indicação explícita de empate, destaque do usuário atual e preservação da lista completa paginada.

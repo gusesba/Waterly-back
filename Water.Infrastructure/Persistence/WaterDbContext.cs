@@ -43,6 +43,10 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<ContestDailyScore> ContestDailyScores => Set<ContestDailyScore>();
     public DbSet<ContestFinalization> ContestFinalizations => Set<ContestFinalization>();
     public DbSet<ContestResult> ContestResults => Set<ContestResult>();
+    public DbSet<ContestRewardDefinition> ContestRewardDefinitions => Set<ContestRewardDefinition>();
+    public DbSet<ContestRewardCheckpoint> ContestRewardCheckpoints => Set<ContestRewardCheckpoint>();
+    public DbSet<MedalDefinition> MedalDefinitions => Set<MedalDefinition>();
+    public DbSet<UserMedal> UserMedals => Set<UserMedal>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -290,6 +294,22 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             contest.HasKey(item => item.Id);
             contest.HasIndex(item => item.StartsOn);
             contest.Property(item => item.Name).HasMaxLength(50);
+            contest.Property(item => item.RewardRuleVersion).HasDefaultValue(1);
+        });
+
+        builder.Entity<ContestRewardDefinition>(reward =>
+        {
+            reward.HasKey(item => item.Id);
+            reward.HasIndex(item => new { item.RuleVersion, item.DurationDays, item.Position }).IsUnique();
+            reward.HasData(
+                new { Id = 1, RuleVersion = 1, DurationDays = 7, Position = 0, DropsReward = 25, PrestigeReward = 10 },
+                new { Id = 2, RuleVersion = 1, DurationDays = 7, Position = 1, DropsReward = 100, PrestigeReward = 50 },
+                new { Id = 3, RuleVersion = 1, DurationDays = 7, Position = 2, DropsReward = 60, PrestigeReward = 30 },
+                new { Id = 4, RuleVersion = 1, DurationDays = 7, Position = 3, DropsReward = 40, PrestigeReward = 20 },
+                new { Id = 5, RuleVersion = 1, DurationDays = 30, Position = 0, DropsReward = 75, PrestigeReward = 30 },
+                new { Id = 6, RuleVersion = 1, DurationDays = 30, Position = 1, DropsReward = 100, PrestigeReward = 50 },
+                new { Id = 7, RuleVersion = 1, DurationDays = 30, Position = 2, DropsReward = 60, PrestigeReward = 30 },
+                new { Id = 8, RuleVersion = 1, DurationDays = 30, Position = 3, DropsReward = 40, PrestigeReward = 20 });
         });
 
         builder.Entity<ContestParticipant>(participant =>
@@ -330,6 +350,32 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             result.Property(item => item.DisplayName).HasMaxLength(40);
             result.HasOne<Contest>().WithMany().HasForeignKey(item => item.ContestId).OnDelete(DeleteBehavior.Cascade);
             result.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ContestRewardCheckpoint>(checkpoint =>
+        {
+            checkpoint.HasKey(item => item.Id);
+            checkpoint.HasIndex(item => item.ContestId).IsUnique();
+            checkpoint.HasOne<Contest>().WithOne().HasForeignKey<ContestRewardCheckpoint>(item => item.ContestId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<MedalDefinition>(medal =>
+        {
+            medal.HasKey(item => item.Id);
+            medal.HasIndex(item => item.ContestId).IsUnique();
+            medal.HasIndex(item => item.Code).IsUnique();
+            medal.Property(item => item.Code).HasMaxLength(48);
+            medal.Property(item => item.Name).HasMaxLength(50);
+            medal.HasOne<Contest>().WithOne().HasForeignKey<MedalDefinition>(item => item.ContestId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<UserMedal>(medal =>
+        {
+            medal.HasKey(item => item.Id);
+            medal.HasIndex(item => new { item.UserId, item.MedalDefinitionId }).IsUnique();
+            medal.Property(item => item.UserId).HasMaxLength(450);
+            medal.HasOne<MedalDefinition>().WithMany().HasForeignKey(item => item.MedalDefinitionId).OnDelete(DeleteBehavior.Cascade);
+            medal.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<CosmeticItem>(cosmetic =>
