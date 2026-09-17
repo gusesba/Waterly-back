@@ -561,6 +561,11 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
             await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
         var first = await LoginAsync(firstEmail, password);
         var second = await LoginAsync(secondEmail, password);
+        foreach (var accessToken in new[] { first.AccessToken, second.AccessToken })
+        {
+            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            (await _client.PutAsJsonAsync("/api/v1/me/onboarding", new CompleteOnboardingRequest(28, 178, 74.5m, 2000, ["habit"], "UTC"))).EnsureSuccessStatusCode();
+        }
         Contest contest;
         await using (var scope = factory.Services.CreateAsyncScope())
         {
@@ -587,8 +592,53 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", second.AccessToken);
         var detail = await _client.GetFromJsonAsync<ContestResponse>($"/api/v1/contests/{contest.Id}");
         Assert.False(detail!.IsParticipant);
+        Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"/api/v1/contests/{contest.Id}/score")).StatusCode);
         var secondJoin = await (await _client.PostAsJsonAsync($"/api/v1/contests/{contest.Id}/join", new JoinContestRequest(Guid.NewGuid()))).Content.ReadFromJsonAsync<ContestResponse>();
         Assert.Equal(2, secondJoin!.ParticipantCount);
+    }
+
+    [Fact]
+    public async Task Contest_daily_score_uses_hydration_equivalent_join_date_and_final_snapshots()
+    {
+        const string password = "waterly123";
+        var email = $"contest-score-{Guid.NewGuid():N}@example.com";
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+        var tokens = await LoginAsync(email, password);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+        (await _client.PutAsJsonAsync("/api/v1/me/onboarding", new CompleteOnboardingRequest(28, 178, 74.5m, 1000, ["habit"], "UTC"))).EnsureSuccessStatusCode();
+        Contest contest;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            contest = new Contest("Active contest", new DateOnly(2026, 9, 14), 7, new DateTimeOffset(2026, 9, 14, 0, 0, 0, TimeSpan.Zero));
+            db.Contests.Add(contest);
+            await db.SaveChangesAsync();
+        }
+
+        (await _client.PostAsJsonAsync($"/api/v1/contests/{contest.Id}/join", new JoinContestRequest(Guid.NewGuid()))).EnsureSuccessStatusCode();
+        var hydration = await (await _client.PostAsJsonAsync("/api/v1/hydration/entries", new AddDrinkEntryRequest(Guid.NewGuid(), 1250, new DateTimeOffset(2026, 9, 15, 14, 0, 0, TimeSpan.Zero), "UTC", "coffee"))).Content.ReadFromJsonAsync<TodayHydrationResponse>();
+        var score = await _client.GetFromJsonAsync<ContestScoreResponse>($"/api/v1/contests/{contest.Id}/score");
+        Assert.Equal(100m, score!.TotalScore);
+        Assert.Equal(100m, score.MaximumScore);
+        Assert.Single(score.Days);
+        Assert.Equal(new DateOnly(2026, 9, 15), score.Days.Single().Date);
+        Assert.False(score.Days.Single().IsFinal);
+
+        var entry = hydration!.Entries.Single();
+        (await _client.PatchAsJsonAsync($"/api/v1/hydration/entries/{entry.Id}", new UpdateDrinkEntryRequest(625, "coffee", Guid.NewGuid()))).EnsureSuccessStatusCode();
+        score = await _client.GetFromJsonAsync<ContestScoreResponse>($"/api/v1/contests/{contest.Id}/score");
+        Assert.Equal(50m, score!.TotalScore);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByEmailAsync(email);
+            await scope.ServiceProvider.GetRequiredService<IContestScoreService>().FinalizeThroughAsync(user!.Id, new DateOnly(2026, 9, 15), CancellationToken.None);
+        }
+        (await _client.PatchAsJsonAsync($"/api/v1/hydration/entries/{entry.Id}", new UpdateDrinkEntryRequest(1250, "coffee", Guid.NewGuid()))).EnsureSuccessStatusCode();
+        score = await _client.GetFromJsonAsync<ContestScoreResponse>($"/api/v1/contests/{contest.Id}/score");
+        Assert.Equal(50m, score!.TotalScore);
+        Assert.True(score.Days.Single().IsFinal);
     }
 
     [Fact]
@@ -631,6 +681,7 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/contests/capabilities")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/admin/contests", new CreateContestRequest("Contest", new DateOnly(2026, 9, 16), 7))).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/api/v1/contests/{id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/api/v1/contests/{id}/score")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync($"/api/v1/contests/{id}/join", new JoinContestRequest(Guid.NewGuid()))).StatusCode);
     }
 

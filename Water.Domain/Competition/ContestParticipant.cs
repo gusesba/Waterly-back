@@ -4,13 +4,14 @@ public sealed class ContestParticipant
 {
     private ContestParticipant() { }
 
-    public ContestParticipant(Guid contestId, string userId, Guid clientOperationId, DateTimeOffset joinedAt)
+    public ContestParticipant(Guid contestId, string userId, Guid clientOperationId, DateTimeOffset joinedAt, DateOnly eligibleFrom)
     {
         Id = Guid.NewGuid();
         ContestId = contestId;
         UserId = userId;
         ClientOperationId = clientOperationId;
         JoinedAt = joinedAt;
+        EligibleFrom = eligibleFrom;
     }
 
     public Guid Id { get; private set; }
@@ -18,4 +19,5 @@ public sealed class ContestParticipant
     public string UserId { get; private set; } = string.Empty;
     public Guid ClientOperationId { get; private set; }
     public DateTimeOffset JoinedAt { get; private set; }
+    public DateOnly? EligibleFrom { get; private set; }
 }

@@ -8,6 +8,8 @@ public sealed record CreateContestRequest(
     int DurationDays);
 public sealed record JoinContestRequest(Guid ClientOperationId);
 public sealed record ContestCapabilitiesResponse(bool CanManageContests);
+public sealed record ContestDailyScoreResponse(DateOnly Date, int DailyTargetMl, int HydrationMl, decimal Score, bool IsFinal);
+public sealed record ContestScoreResponse(decimal TotalScore, decimal MaximumScore, IReadOnlyCollection<ContestDailyScoreResponse> Days);
 public sealed record ContestResponse(
     Guid Id,
     string Name,
@@ -26,6 +28,12 @@ public interface IContestService
     Task<ContestResponse> GetAsync(string userId, Guid contestId, CancellationToken token);
     Task<ContestResponse> CreateAsync(string userId, CreateContestRequest request, CancellationToken token);
     Task<ContestResponse> JoinAsync(string userId, Guid contestId, Guid clientOperationId, CancellationToken token);
+}
+
+public interface IContestScoreService
+{
+    Task<ContestScoreResponse> GetAsync(string userId, Guid contestId, CancellationToken token);
+    Task FinalizeThroughAsync(string userId, DateOnly closeThrough, CancellationToken token);
 }
 
 public sealed class ContestNotFoundException : Exception;

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Water.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Water.Infrastructure.Persistence;
 namespace Water.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(WaterDbContext))]
-    partial class WaterDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260917180421_AddContestDailyScores")]
+    partial class AddContestDailyScores
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

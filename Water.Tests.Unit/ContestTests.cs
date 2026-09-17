@@ -18,4 +18,14 @@ public sealed class ContestTests
         Assert.Equal("ended", contest.Status(new DateOnly(2026, 9, 23)));
         Assert.Throws<ArgumentOutOfRangeException>(() => new Contest("Invalid", new DateOnly(2026, 9, 16), 8, DateTimeOffset.UtcNow));
     }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1000, 50)]
+    [InlineData(2000, 100)]
+    [InlineData(3000, 100)]
+    public void Daily_score_is_linear_and_capped(int hydrationMl, decimal expected)
+    {
+        Assert.Equal(expected, ContestDailyScore.Calculate(2000, hydrationMl, 100));
+    }
 }

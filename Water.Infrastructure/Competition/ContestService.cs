@@ -38,7 +38,11 @@ public sealed class ContestService(WaterDbContext dbContext, TimeProvider timePr
         if (existing is null)
         {
             if (contest.EndsOn <= Today()) throw new ContestConflictException();
-            dbContext.ContestParticipants.Add(new ContestParticipant(contestId, userId, clientOperationId, timeProvider.GetUtcNow()));
+            var profileTimeZone = await dbContext.Profiles.AsNoTracking().Where(item => item.UserId == userId).Select(item => item.TimeZone).SingleOrDefaultAsync(token)
+                ?? throw new ContestValidationException();
+            var joinedAt = timeProvider.GetUtcNow();
+            var localDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(joinedAt, ResolveTimeZone(profileTimeZone)).Date);
+            dbContext.ContestParticipants.Add(new ContestParticipant(contestId, userId, clientOperationId, joinedAt, localDate < contest.StartsOn ? contest.StartsOn : localDate));
             await dbContext.SaveChangesAsync(token);
         }
         await transaction.CommitAsync(token);
@@ -58,4 +62,11 @@ public sealed class ContestService(WaterDbContext dbContext, TimeProvider timePr
     }
 
     private DateOnly Today() => DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+
+    private static TimeZoneInfo ResolveTimeZone(string value)
+    {
+        try { return TimeZoneInfo.FindSystemTimeZoneById(value); }
+        catch (Exception exception) when (exception is TimeZoneNotFoundException or InvalidTimeZoneException)
+        { throw new ContestValidationException(); }
+    }
 }

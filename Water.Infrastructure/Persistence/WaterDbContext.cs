@@ -40,6 +40,7 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<FeedReaction> FeedReactions => Set<FeedReaction>();
     public DbSet<Contest> Contests => Set<Contest>();
     public DbSet<ContestParticipant> ContestParticipants => Set<ContestParticipant>();
+    public DbSet<ContestDailyScore> ContestDailyScores => Set<ContestDailyScore>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -297,6 +298,16 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             participant.Property(item => item.UserId).HasMaxLength(450);
             participant.HasOne<Contest>().WithMany().HasForeignKey(item => item.ContestId).OnDelete(DeleteBehavior.Cascade);
             participant.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ContestDailyScore>(score =>
+        {
+            score.HasKey(item => item.Id);
+            score.HasIndex(item => new { item.ContestId, item.UserId, item.LocalDate }).IsUnique();
+            score.Property(item => item.UserId).HasMaxLength(450);
+            score.Property(item => item.Score).HasPrecision(6, 2);
+            score.HasOne<Contest>().WithMany().HasForeignKey(item => item.ContestId).OnDelete(DeleteBehavior.Cascade);
+            score.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<CosmeticItem>(cosmetic =>

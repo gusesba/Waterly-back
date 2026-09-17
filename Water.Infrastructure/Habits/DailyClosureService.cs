@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Water.Application.Habits;
 using Water.Domain.Habits;
+using Water.Application.Competition;
 using Water.Infrastructure.Persistence;
 
 namespace Water.Infrastructure.Habits;
@@ -8,6 +9,7 @@ namespace Water.Infrastructure.Habits;
 public sealed class DailyClosureService(
     WaterDbContext dbContext,
     IAchievementService achievementService,
+    IContestScoreService contestScoreService,
     TimeProvider timeProvider) : IDailyClosureService
 {
     public async Task<IReadOnlyCollection<DailyClosureCandidate>> GetDueAsync(
@@ -42,6 +44,7 @@ public sealed class DailyClosureService(
         if (checkpoint is not null && checkpoint.ClosedThrough >= candidate.CloseThrough) return;
 
         await achievementService.GetAchievementsAsync(candidate.UserId, cancellationToken);
+        await contestScoreService.FinalizeThroughAsync(candidate.UserId, candidate.CloseThrough, cancellationToken);
         var now = timeProvider.GetUtcNow();
         if (checkpoint is null)
         {

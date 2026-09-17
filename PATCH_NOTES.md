@@ -2,11 +2,30 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 5B — Publicação administrativa de concursos
+## Etapa 5C — Pontuação diária individual de concursos
 
 Data: 2026-09-17
 
 ### Backend — `não commitado`
+
+- Snapshots diários únicos por concurso, usuário e data com meta, hidratação equivalente, regra, pontos e estado de finalização.
+- Pontuação linear com duas casas decimais, limitada ao teto diário de 100 e iniciada somente na data elegível congelada na entrada.
+- Projeção diária de hidratação extraída para serviço compartilhado por streaks e competição.
+- Endpoint autenticado de pontuação pessoal e finalização idempotente integrada ao fechamento diário.
+- Migration `AddContestDailyScores` compatível com participantes existentes e testes de teto, contribuição das bebidas, data de entrada, atualização provisória e imutabilidade final.
+
+### Frontend — `não commitado`
+
+- Pontuação total e máximo possível exibidos no detalhe para participantes.
+- Lista diária com hidratação versus meta, pontos e distinção entre snapshot provisório e final.
+- Cache de pontuação invalidado após alterações online e sincronização offline da hidratação.
+- Textos e acessibilidade em português e inglês.
+
+## Etapa 5B — Publicação administrativa de concursos
+
+Data: 2026-09-17
+
+### Backend — `79b1ea4` (`5b`)
 
 - Política `contest-admin` avaliada no servidor pelo usuário autenticado e pela lista de e-mails configurada no ambiente.
 - Ambiente local configurado para permitir a publicação pela conta administrativa de desenvolvimento definida pelo responsável do projeto.
@@ -15,7 +34,7 @@ Data: 2026-09-17
 - Validação de nome, duração e data presente ou futura, com resposta `201 Created` para publicações válidas.
 - Testes de autenticação, autorização, validação, regras congeladas e disponibilidade imediata na listagem global.
 
-### Frontend — `não commitado`
+### Frontend — `e4b0cfb` (`concursos`)
 
 - Ação de publicação exibida somente quando a capacidade administrativa retornada pelo backend está ativa.
 - Tela administrativa separada com nome, início, duração, resumo do período e regras congeladas.

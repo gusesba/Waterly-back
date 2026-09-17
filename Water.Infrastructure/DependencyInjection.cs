@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IHydrationService, HydrationService>();
         services.AddScoped<IHabitService, HabitService>();
+        services.AddScoped<IDailyHydrationProjectionService, DailyHydrationProjectionService>();
         services.AddScoped<IAchievementService, AchievementService>();
         services.AddScoped<IProgressionService, ProgressionService>();
         services.AddScoped<IProfileService, ProfileService>();
@@ -56,6 +57,7 @@ public static class DependencyInjection
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IFeedService, FeedService>();
         services.AddScoped<IContestService, ContestService>();
+        services.AddScoped<IContestScoreService, ContestScoreService>();
         services.AddOptions<DailyClosureOptions>()
             .Bind(configuration.GetSection(DailyClosureOptions.SectionName))
             .Validate(options => options.Interval > TimeSpan.Zero, "DailyClosure interval must be positive.")

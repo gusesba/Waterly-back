@@ -5,3 +5,8 @@ public sealed record StreakResponse(
     int Longest,
     bool TodayCompleted,
     DateOnly? LastCompletedDate);
+
+public interface IDailyHydrationProjectionService
+{
+    Task RebuildAsync(string userId, CancellationToken cancellationToken);
+}
