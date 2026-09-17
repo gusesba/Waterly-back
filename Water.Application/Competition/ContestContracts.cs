@@ -1,0 +1,25 @@
+namespace Water.Application.Competition;
+
+public sealed record JoinContestRequest(Guid ClientOperationId);
+public sealed record ContestResponse(
+    Guid Id,
+    string Name,
+    DateOnly StartsOn,
+    DateOnly EndsOn,
+    int DurationDays,
+    int ScoringRuleVersion,
+    int DailyScoreCap,
+    string Status,
+    int ParticipantCount,
+    bool IsParticipant);
+
+public interface IContestService
+{
+    Task<IReadOnlyCollection<ContestResponse>> GetAllAsync(string userId, CancellationToken token);
+    Task<ContestResponse> GetAsync(string userId, Guid contestId, CancellationToken token);
+    Task<ContestResponse> JoinAsync(string userId, Guid contestId, Guid clientOperationId, CancellationToken token);
+}
+
+public sealed class ContestNotFoundException : Exception;
+public sealed class ContestConflictException : Exception;
+public sealed class ContestValidationException : Exception;

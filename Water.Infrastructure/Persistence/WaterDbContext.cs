@@ -7,6 +7,7 @@ using Water.Domain.Progression;
 using Water.Domain.Cosmetics;
 using Water.Domain.Social;
 using Water.Domain.Feed;
+using Water.Domain.Competition;
 using Water.Infrastructure.Identity;
 
 namespace Water.Infrastructure.Persistence;
@@ -37,6 +38,8 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<GroupInvite> GroupInvites => Set<GroupInvite>();
     public DbSet<FeedEvent> FeedEvents => Set<FeedEvent>();
     public DbSet<FeedReaction> FeedReactions => Set<FeedReaction>();
+    public DbSet<Contest> Contests => Set<Contest>();
+    public DbSet<ContestParticipant> ContestParticipants => Set<ContestParticipant>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -277,6 +280,23 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             reaction.Property(item => item.Type).HasMaxLength(16);
             reaction.HasOne<FeedEvent>().WithMany().HasForeignKey(item => item.FeedEventId).OnDelete(DeleteBehavior.Cascade);
             reaction.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Contest>(contest =>
+        {
+            contest.HasKey(item => item.Id);
+            contest.HasIndex(item => item.StartsOn);
+            contest.Property(item => item.Name).HasMaxLength(50);
+        });
+
+        builder.Entity<ContestParticipant>(participant =>
+        {
+            participant.HasKey(item => item.Id);
+            participant.HasIndex(item => new { item.ContestId, item.UserId }).IsUnique();
+            participant.HasIndex(item => new { item.UserId, item.ClientOperationId }).IsUnique();
+            participant.Property(item => item.UserId).HasMaxLength(450);
+            participant.HasOne<Contest>().WithMany().HasForeignKey(item => item.ContestId).OnDelete(DeleteBehavior.Cascade);
+            participant.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<CosmeticItem>(cosmetic =>

@@ -2,11 +2,30 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
+## Etapa 5A — Concursos globais e participação
+
+Data: 2026-09-17
+
+### Backend — `não commitado`
+
+- Concursos globais imutáveis com duração de 7 ou 30 dias e fim exclusivo, independentes de grupos e amizades.
+- Versão da regra e teto diário de 100 pontos congelados na criação, com estados derivados pelo relógio da aplicação.
+- Consulta disponível a todos os usuários autenticados; criação reservada a operação administrativa interna futura.
+- Participação explícita, única e idempotente por usuário e concurso.
+- Migration `AddGlobalContests` e testes de domínio, autenticação, visibilidade global, datas e participação.
+
+### Frontend — `não commitado`
+
+- Área própria de concursos globais na navegação principal, sem dependência da tela de grupos.
+- Listagem geral com estado, duração, quantidade de participantes e indicação de participação atual.
+- Tela de detalhe com período, regras congeladas, participantes e entrada idempotente.
+- Textos e acessibilidade em português e inglês.
+
 ## Etapa 4F — Bloqueio e segurança social mínima
 
 Data: 2026-09-16
 
-### Backend — `não commitado`
+### Backend — `8bf7a27` (`4f`)
 
 - Bloqueio unilateral e idempotente com remoção transacional de amizade ou solicitação pendente.
 - Contas bloqueadas são excluídas mutuamente da busca, de novas solicitações e dos eventos visíveis no feed.
@@ -14,7 +33,7 @@ Data: 2026-09-16
 - Endpoints autenticados para listar, bloquear e desbloquear, protegidos pelo rate limiting social.
 - Migration `AddUserBlocks` e testes de domínio, autenticação, privacidade, idempotência, grupos e desbloqueio sem restauração da amizade.
 
-### Frontend — `não commitado`
+### Frontend — `ec8bd98` (`4e + 4f`)
 
 - Confirmação em dois passos para bloquear um amigo e invalidação dos caches sociais, de grupos e do feed.
 - Lista privada de contas bloqueadas com desbloqueio e aviso de que a amizade não será restaurada.
@@ -32,7 +51,7 @@ Data: 2026-09-16
 - Contagens agregadas e reação atual incorporadas ao contrato paginado do feed.
 - Migration `AddFeedReactions` e testes de domínio, autenticação, validação, privacidade, troca e remoção.
 
-### Frontend — `não commitado`
+### Frontend — `ec8bd98` (`4e + 4f`)
 
 - Botões acessíveis de reação em cada evento, com contagem e destaque da seleção atual.
 - Atualização otimista para adicionar, trocar ou remover, com rollback em caso de falha e reconciliação com o servidor.

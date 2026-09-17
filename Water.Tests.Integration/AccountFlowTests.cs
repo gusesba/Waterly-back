@@ -15,6 +15,8 @@ using Water.Application.Cosmetics;
 using Water.Application.Social;
 using Water.Application.Feed;
 using Water.Domain.Feed;
+using Water.Application.Competition;
+using Water.Domain.Competition;
 using Water.Infrastructure.Identity;
 using Water.Infrastructure.Persistence;
 
@@ -547,6 +549,56 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/blocks")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PutAsync("/api/v1/blocks/user", null)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.DeleteAsync("/api/v1/blocks/user")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Global_contests_are_visible_to_every_user_and_join_idempotently()
+    {
+        const string password = "waterly123";
+        var firstEmail = $"contest-first-{Guid.NewGuid():N}@example.com";
+        var secondEmail = $"contest-second-{Guid.NewGuid():N}@example.com";
+        foreach (var email in new[] { firstEmail, secondEmail })
+            await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+        var first = await LoginAsync(firstEmail, password);
+        var second = await LoginAsync(secondEmail, password);
+        Contest contest;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            contest = new Contest("Seven days", new DateOnly(2026, 9, 16), 7, new DateTimeOffset(2026, 9, 15, 15, 0, 0, TimeSpan.Zero));
+            db.Contests.Add(contest);
+            await db.SaveChangesAsync();
+        }
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", first.AccessToken);
+        var listed = (await _client.GetFromJsonAsync<ContestResponse[]>("/api/v1/contests"))!.Single(item => item.Id == contest.Id);
+        Assert.Equal("upcoming", listed.Status);
+        Assert.Equal(new DateOnly(2026, 9, 23), listed.EndsOn);
+        Assert.Equal(100, listed.DailyScoreCap);
+        Assert.Equal(1, listed.ScoringRuleVersion);
+        var operationId = Guid.NewGuid();
+        var joined = await (await _client.PostAsJsonAsync($"/api/v1/contests/{contest.Id}/join", new JoinContestRequest(operationId))).Content.ReadFromJsonAsync<ContestResponse>();
+        var repeated = await (await _client.PostAsJsonAsync($"/api/v1/contests/{contest.Id}/join", new JoinContestRequest(operationId))).Content.ReadFromJsonAsync<ContestResponse>();
+        var anotherOperation = await (await _client.PostAsJsonAsync($"/api/v1/contests/{contest.Id}/join", new JoinContestRequest(Guid.NewGuid()))).Content.ReadFromJsonAsync<ContestResponse>();
+        Assert.True(joined!.IsParticipant);
+        Assert.Equal(1, repeated!.ParticipantCount);
+        Assert.Equal(1, anotherOperation!.ParticipantCount);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", second.AccessToken);
+        var detail = await _client.GetFromJsonAsync<ContestResponse>($"/api/v1/contests/{contest.Id}");
+        Assert.False(detail!.IsParticipant);
+        var secondJoin = await (await _client.PostAsJsonAsync($"/api/v1/contests/{contest.Id}/join", new JoinContestRequest(Guid.NewGuid()))).Content.ReadFromJsonAsync<ContestResponse>();
+        Assert.Equal(2, secondJoin!.ParticipantCount);
+    }
+
+    [Fact]
+    public async Task Contest_endpoints_require_authentication()
+    {
+        using var client = factory.CreateClient();
+        var id = Guid.NewGuid();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/contests")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/api/v1/contests/{id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync($"/api/v1/contests/{id}/join", new JoinContestRequest(Guid.NewGuid()))).StatusCode);
     }
 
     [Fact]
