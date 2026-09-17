@@ -2,11 +2,48 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 5C — Pontuação diária individual de concursos
+## Etapa 5E — Encerramento e resultados imutáveis de concursos
 
 Data: 2026-09-17
 
 ### Backend — `não commitado`
+
+- Finalização global de concursos por worker configurável, executada somente após todos os participantes ultrapassarem localmente o último dia elegível.
+- Snapshot transacional e idempotente da finalização e dos resultados individuais, incluindo posição, pontuação, dias pontuados, empate e perfil público exibido.
+- Leaderboard final lido exclusivamente dos resultados persistidos, sem responder a edições posteriores de hidratação ou perfil.
+- Posições competitivas compartilhadas em empates e suporte a encerramento válido sem participantes.
+- Migration `AddContestFinalizationAndResults` e testes de reprocessamento, imutabilidade, perfil congelado, classificação e concurso vazio.
+
+### Frontend — `não commitado`
+
+- Pódio exibido em resultados finais para todas as pessoas nas posições 1, 2 e 3, incluindo empates.
+- Indicação explícita de empate, destaque do usuário atual e preservação da lista completa paginada.
+- Textos do pódio e dos empates em português e inglês.
+
+## Etapa 5D — Leaderboard global de concursos
+
+Data: 2026-09-17
+
+### Backend — `fbd2845` (`5d`)
+
+- Leaderboard global autenticado e paginado por concurso, disponível também para usuários que não participam.
+- Pontuação provisória atualizada para todos os participantes antes da leitura, sem depender da abertura da pontuação individual.
+- Ranking competitivo com posições compartilhadas em empates e ordenação visual estável.
+- Contrato limitado ao perfil público, com anonimato para participantes sem perfil e sem exposição de e-mail, dados físicos ou identificadores internos.
+- Testes de ordenação, empate, paginação, privacidade, perfil ausente e autenticação.
+
+### Frontend — `1be8729` (`5d`)
+
+- Ranking global exibido no detalhe do concurso para participantes e não participantes.
+- Destaque do usuário atual, posições empatadas, pontuação, dias pontuados e participante anônimo.
+- Paginação incremental, estados de carregamento, vazio e erro, com textos em português e inglês.
+- Cache do ranking invalidado após participação e alterações online ou sincronizadas da hidratação.
+
+## Etapa 5C — Pontuação diária individual de concursos
+
+Data: 2026-09-17
+
+### Backend — `7cb08fb` (`5c`)
 
 - Snapshots diários únicos por concurso, usuário e data com meta, hidratação equivalente, regra, pontos e estado de finalização.
 - Pontuação linear com duas casas decimais, limitada ao teto diário de 100 e iniciada somente na data elegível congelada na entrada.
@@ -14,7 +51,7 @@ Data: 2026-09-17
 - Endpoint autenticado de pontuação pessoal e finalização idempotente integrada ao fechamento diário.
 - Migration `AddContestDailyScores` compatível com participantes existentes e testes de teto, contribuição das bebidas, data de entrada, atualização provisória e imutabilidade final.
 
-### Frontend — `não commitado`
+### Frontend — `886d7a7` (`5c`)
 
 - Pontuação total e máximo possível exibidos no detalhe para participantes.
 - Lista diária com hidratação versus meta, pontos e distinção entre snapshot provisório e final.

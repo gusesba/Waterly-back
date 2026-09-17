@@ -41,6 +41,8 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
     public DbSet<Contest> Contests => Set<Contest>();
     public DbSet<ContestParticipant> ContestParticipants => Set<ContestParticipant>();
     public DbSet<ContestDailyScore> ContestDailyScores => Set<ContestDailyScore>();
+    public DbSet<ContestFinalization> ContestFinalizations => Set<ContestFinalization>();
+    public DbSet<ContestResult> ContestResults => Set<ContestResult>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -308,6 +310,26 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             score.Property(item => item.Score).HasPrecision(6, 2);
             score.HasOne<Contest>().WithMany().HasForeignKey(item => item.ContestId).OnDelete(DeleteBehavior.Cascade);
             score.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ContestFinalization>(finalization =>
+        {
+            finalization.HasKey(item => item.Id);
+            finalization.HasIndex(item => item.ContestId).IsUnique();
+            finalization.HasOne<Contest>().WithOne().HasForeignKey<ContestFinalization>(item => item.ContestId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ContestResult>(result =>
+        {
+            result.HasKey(item => item.Id);
+            result.HasIndex(item => new { item.ContestId, item.UserId }).IsUnique();
+            result.HasIndex(item => new { item.ContestId, item.Position, item.TotalScore });
+            result.Property(item => item.UserId).HasMaxLength(450);
+            result.Property(item => item.TotalScore).HasPrecision(8, 2);
+            result.Property(item => item.Username).HasMaxLength(20);
+            result.Property(item => item.DisplayName).HasMaxLength(40);
+            result.HasOne<Contest>().WithMany().HasForeignKey(item => item.ContestId).OnDelete(DeleteBehavior.Cascade);
+            result.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<CosmeticItem>(cosmetic =>

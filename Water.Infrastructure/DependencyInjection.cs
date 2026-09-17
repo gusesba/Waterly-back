@@ -59,12 +59,19 @@ public static class DependencyInjection
         services.AddScoped<IContestService, ContestService>();
         services.AddScoped<IContestScoreService, ContestScoreService>();
         services.AddScoped<IContestLeaderboardService, ContestLeaderboardService>();
+        services.AddScoped<IContestFinalizationService, ContestFinalizationService>();
         services.AddOptions<DailyClosureOptions>()
             .Bind(configuration.GetSection(DailyClosureOptions.SectionName))
             .Validate(options => options.Interval > TimeSpan.Zero, "DailyClosure interval must be positive.")
             .Validate(options => options.BatchSize is > 0 and <= 1000, "DailyClosure batch size must be between 1 and 1000.")
             .ValidateOnStart();
         services.AddHostedService<DailyClosureWorker>();
+        services.AddOptions<ContestClosureOptions>()
+            .Bind(configuration.GetSection(ContestClosureOptions.SectionName))
+            .Validate(options => options.Interval > TimeSpan.Zero, "ContestClosure interval must be positive.")
+            .Validate(options => options.BatchSize is > 0 and <= 100, "ContestClosure batch size must be between 1 and 100.")
+            .ValidateOnStart();
+        services.AddHostedService<ContestClosureWorker>();
         services.AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 

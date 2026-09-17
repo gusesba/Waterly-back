@@ -21,6 +21,7 @@ public sealed class WaterApiFactory : WebApplicationFactory<Program>, IAsyncLife
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["DailyClosure:Enabled"] = "false",
+                ["ContestClosure:Enabled"] = "false",
                 ["Administration:ContestAdminEmails:0"] = "contest-admin@example.com"
             }));
         builder.ConfigureServices(services =>

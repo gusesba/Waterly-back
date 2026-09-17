@@ -672,6 +672,12 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
             await db.SaveChangesAsync();
         }
 
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            Assert.False(await scope.ServiceProvider.GetRequiredService<IContestFinalizationService>()
+                .FinalizeAsync(contest.Id, CancellationToken.None));
+        }
+
         for (var index = 0; index < users.Length; index++)
         {
             _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens[index]);
@@ -687,6 +693,8 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         Assert.False(leaderboard.IsFinal);
         Assert.Equal([1, 2, 2], leaderboard.Entries.Select(item => item.Position));
         Assert.Equal(100m, leaderboard.Entries.First().TotalScore);
+        Assert.False(leaderboard.Entries.First().IsTied);
+        Assert.All(leaderboard.Entries.Where(item => item.Position == 2), item => Assert.True(item.IsTied));
         Assert.Contains(leaderboard.Entries, item => item.IsCurrentUser && item.Username == "leader_b");
         Assert.Contains(leaderboard.Entries, item => item.Username is null && item.DisplayName is null);
 
@@ -697,6 +705,82 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
         var json = await _client.GetStringAsync($"/api/v1/contests/{contest.Id}/leaderboard");
         Assert.DoesNotContain("email", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("weight", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Ended_contest_is_finalized_once_and_keeps_result_and_profile_snapshots()
+    {
+        const string password = "waterly123";
+        var users = new[]
+        {
+            ($"final-a-{Guid.NewGuid():N}@example.com", "final_a", "Final A", 1000),
+            ($"final-b-{Guid.NewGuid():N}@example.com", "final_b", "Final B", 500)
+        };
+        var accessTokens = new List<string>();
+        var userIds = new List<string>();
+        foreach (var (email, username, displayName, _) in users)
+        {
+            await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+            var session = await LoginAsync(email, password);
+            accessTokens.Add(session.AccessToken);
+            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
+            (await _client.PutAsJsonAsync("/api/v1/me/onboarding", new CompleteOnboardingRequest(28, 178, 74.5m, 1000, ["habit"], "UTC"))).EnsureSuccessStatusCode();
+            (await _client.PutAsJsonAsync("/api/v1/profile", new UpdatePublicProfileRequest(username, displayName, null))).EnsureSuccessStatusCode();
+        }
+
+        Contest contest;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            userIds.AddRange(await db.Users.Where(item => users.Select(user => user.Item1).Contains(item.Email!)).OrderBy(item => item.Email).Select(item => item.Id).ToArrayAsync());
+            contest = new Contest("Final contest", new DateOnly(2026, 9, 8), 7, new DateTimeOffset(2026, 9, 8, 0, 0, 0, TimeSpan.Zero));
+            db.Contests.Add(contest);
+            for (var index = 0; index < userIds.Count; index++)
+            {
+                db.HydrationGoals.Add(new HydrationGoal(userIds[index], 1000, new DateOnly(2026, 9, 14)));
+                db.ContestParticipants.Add(new ContestParticipant(contest.Id, userIds[index], Guid.NewGuid(), new DateTimeOffset(2026, 9, 14, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 9, 14)));
+                db.DrinkEntries.Add(new DrinkEntry(userIds[index], Guid.NewGuid(), users[index].Item4, new DateTimeOffset(2026, 9, 14, 14, 0, 0, TimeSpan.Zero), "UTC"));
+            }
+            await db.SaveChangesAsync();
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<IContestFinalizationService>();
+            Assert.Contains(contest.Id, await service.GetDueAsync(20, CancellationToken.None));
+            Assert.True(await service.FinalizeAsync(contest.Id, CancellationToken.None));
+            Assert.True(await service.FinalizeAsync(contest.Id, CancellationToken.None));
+        }
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessTokens[0]);
+        (await _client.PutAsJsonAsync("/api/v1/profile", new UpdatePublicProfileRequest("renamed_a", "Renamed A", null))).EnsureSuccessStatusCode();
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            db.DrinkEntries.Add(new DrinkEntry(userIds[1], Guid.NewGuid(), 500, new DateTimeOffset(2026, 9, 14, 15, 0, 0, TimeSpan.Zero), "UTC"));
+            await db.SaveChangesAsync();
+            Assert.Equal(1, await db.ContestFinalizations.CountAsync(item => item.ContestId == contest.Id));
+            Assert.Equal(2, await db.ContestResults.CountAsync(item => item.ContestId == contest.Id));
+        }
+
+        var leaderboard = await _client.GetFromJsonAsync<ContestLeaderboardResponse>($"/api/v1/contests/{contest.Id}/leaderboard");
+        Assert.NotNull(leaderboard);
+        Assert.True(leaderboard.IsFinal);
+        Assert.Equal([1, 2], leaderboard.Entries.Select(item => item.Position));
+        Assert.Equal([100m, 50m], leaderboard.Entries.Select(item => item.TotalScore));
+        Assert.Contains(leaderboard.Entries, item => item.Username == "final_a" && item.DisplayName == "Final A");
+        Assert.DoesNotContain(leaderboard.Entries, item => item.Username == "renamed_a");
+
+        Contest emptyContest;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            emptyContest = new Contest("Empty final", new DateOnly(2026, 9, 8), 7, new DateTimeOffset(2026, 9, 8, 0, 0, 0, TimeSpan.Zero));
+            db.Contests.Add(emptyContest);
+            await db.SaveChangesAsync();
+            Assert.True(await scope.ServiceProvider.GetRequiredService<IContestFinalizationService>().FinalizeAsync(emptyContest.Id, CancellationToken.None));
+            Assert.Equal(0, (await db.ContestFinalizations.SingleAsync(item => item.ContestId == emptyContest.Id)).ParticipantCount);
+        }
     }
 
     [Fact]

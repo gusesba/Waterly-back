@@ -16,6 +16,7 @@ public sealed record ContestLeaderboardEntryResponse(
     string? DisplayName,
     decimal TotalScore,
     int ScoredDays,
+    bool IsTied,
     bool IsCurrentUser);
 public sealed record ContestLeaderboardResponse(
     IReadOnlyCollection<ContestLeaderboardEntryResponse> Entries,
@@ -53,6 +54,12 @@ public interface IContestScoreService
 public interface IContestLeaderboardService
 {
     Task<ContestLeaderboardResponse> GetAsync(string userId, Guid contestId, int page, int pageSize, CancellationToken token);
+}
+
+public interface IContestFinalizationService
+{
+    Task<IReadOnlyCollection<Guid>> GetDueAsync(int batchSize, CancellationToken token);
+    Task<bool> FinalizeAsync(Guid contestId, CancellationToken token);
 }
 
 public sealed class ContestNotFoundException : Exception;

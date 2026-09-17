@@ -19,6 +19,8 @@ public sealed class ContestLeaderboardService(
         if (page < 1 || pageSize is < 1 or > 50) throw new ContestValidationException();
         var contest = await dbContext.Contests.AsNoTracking().SingleOrDefaultAsync(item => item.Id == contestId, token)
             ?? throw new ContestNotFoundException();
+        if (await dbContext.ContestFinalizations.AsNoTracking().AnyAsync(item => item.ContestId == contestId, token))
+            return await GetFinalAsync(userId, contestId, page, pageSize, token);
 
         await scoreService.RefreshContestAsync(contestId, token);
 
@@ -44,14 +46,19 @@ public sealed class ContestLeaderboardService(
             .ToArrayAsync(token);
 
         var positions = new Dictionary<decimal, int>();
+        var ties = new Dictionary<decimal, bool>();
         foreach (var score in pageRows.Select(item => item.TotalScore).Distinct())
+        {
             positions[score] = await participants.CountAsync(item => item.TotalScore > score, token) + 1;
+            ties[score] = await participants.CountAsync(item => item.TotalScore == score, token) > 1;
+        }
         var entries = pageRows.Select(item => new ContestLeaderboardEntryResponse(
             positions[item.TotalScore],
             item.Username,
             item.DisplayName,
             item.TotalScore,
             item.ScoredDays,
+            ties[item.TotalScore],
             item.UserId == userId)).ToArray();
         var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
         var hasProvisionalScore = await dbContext.ContestDailyScores.AsNoTracking()
@@ -59,5 +66,30 @@ public sealed class ContestLeaderboardService(
 
         return new ContestLeaderboardResponse(entries, totalCount, page, pageSize,
             contest.Status(today) == "ended" && !hasProvisionalScore);
+    }
+
+    private async Task<ContestLeaderboardResponse> GetFinalAsync(
+        string userId,
+        Guid contestId,
+        int page,
+        int pageSize,
+        CancellationToken token)
+    {
+        var results = dbContext.ContestResults.AsNoTracking().Where(item => item.ContestId == contestId);
+        var totalCount = await results.CountAsync(token);
+        var rows = await results.OrderBy(item => item.Position)
+            .ThenBy(item => item.Username ?? item.UserId)
+            .ThenBy(item => item.UserId)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToArrayAsync(token);
+        return new ContestLeaderboardResponse(rows.Select(item => new ContestLeaderboardEntryResponse(
+            item.Position,
+            item.Username,
+            item.DisplayName,
+            item.TotalScore,
+            item.ScoredDays,
+            item.IsTied,
+            item.UserId == userId)).ToArray(), totalCount, page, pageSize, true);
     }
 }
