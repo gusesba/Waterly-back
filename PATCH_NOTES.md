@@ -2,11 +2,32 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 5A — Concursos globais e participação
+## Etapa 5B — Publicação administrativa de concursos
 
 Data: 2026-09-17
 
 ### Backend — `não commitado`
+
+- Política `contest-admin` avaliada no servidor pelo usuário autenticado e pela lista de e-mails configurada no ambiente.
+- Ambiente local configurado para permitir a publicação pela conta administrativa de desenvolvimento definida pelo responsável do projeto.
+- Endpoint administrativo `POST /api/v1/admin/contests` para publicar concursos globais imutáveis de 7 ou 30 dias.
+- Endpoint de capacidades que informa somente o resultado da autorização, sem expor a configuração administrativa.
+- Validação de nome, duração e data presente ou futura, com resposta `201 Created` para publicações válidas.
+- Testes de autenticação, autorização, validação, regras congeladas e disponibilidade imediata na listagem global.
+
+### Frontend — `não commitado`
+
+- Ação de publicação exibida somente quando a capacidade administrativa retornada pelo backend está ativa.
+- Tela administrativa separada com nome, início, duração, resumo do período e regras congeladas.
+- Publicação seguida de atualização da listagem global e abertura do concurso criado.
+- Nenhuma permissão administrativa é armazenada ou inferida em dados locais do navegador ou dispositivo.
+- Textos e acessibilidade em português e inglês e teste de validação de datas civis.
+
+## Etapa 5A — Concursos globais e participação
+
+Data: 2026-09-17
+
+### Backend — `da167f9` (`5a`)
 
 - Concursos globais imutáveis com duração de 7 ou 30 dias e fim exclusivo, independentes de grupos e amizades.
 - Versão da regra e teto diário de 100 pontos congelados na criação, com estados derivados pelo relógio da aplicação.
@@ -14,7 +35,7 @@ Data: 2026-09-17
 - Participação explícita, única e idempotente por usuário e concurso.
 - Migration `AddGlobalContests` e testes de domínio, autenticação, visibilidade global, datas e participação.
 
-### Frontend — `não commitado`
+### Frontend — `c7de047` (`5a`)
 
 - Área própria de concursos globais na navegação principal, sem dependência da tela de grupos.
 - Listagem geral com estado, duração, quantidade de participantes e indicação de participação atual.

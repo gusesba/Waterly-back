@@ -20,6 +20,15 @@ public sealed class ContestService(WaterDbContext dbContext, TimeProvider timePr
         return (await MapAsync([contest], userId, token)).Single();
     }
 
+    public async Task<ContestResponse> CreateAsync(string userId, CreateContestRequest request, CancellationToken token)
+    {
+        if (request.DurationDays is not (7 or 30) || request.StartsOn < Today()) throw new ContestValidationException();
+        var contest = new Contest(request.Name, request.StartsOn, request.DurationDays, timeProvider.GetUtcNow());
+        dbContext.Contests.Add(contest);
+        await dbContext.SaveChangesAsync(token);
+        return (await MapAsync([contest], userId, token)).Single();
+    }
+
     public async Task<ContestResponse> JoinAsync(string userId, Guid contestId, Guid clientOperationId, CancellationToken token)
     {
         if (clientOperationId == Guid.Empty) throw new ContestValidationException();

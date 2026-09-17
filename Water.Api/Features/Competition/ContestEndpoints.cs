@@ -1,26 +1,42 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Water.Application.Competition;
 
 namespace Water.Api.Features.Competition;
 
 public static class ContestEndpoints
 {
+    public const string AdminPolicy = "contest-admin";
+
     public static IEndpointRouteBuilder MapContestEndpoints(this IEndpointRouteBuilder endpoints, bool requireRateLimiting = true)
     {
         var group = endpoints.MapGroup("/api/v1").RequireAuthorization().WithTags("Contests");
         if (requireRateLimiting) group.RequireRateLimiting("social");
         group.MapGet("/contests", GetAllAsync);
+        group.MapGet("/contests/capabilities", GetCapabilitiesAsync);
         group.MapGet("/contests/{contestId:guid}", GetAsync);
         group.MapPost("/contests/{contestId:guid}/join", JoinAsync);
+        group.MapPost("/admin/contests", CreateAsync).RequireAuthorization(AdminPolicy);
         return endpoints;
     }
 
     private static async Task<IResult> GetAllAsync(ClaimsPrincipal principal, IContestService service, CancellationToken token) =>
         await Result(() => service.GetAllAsync(UserId(principal), token));
+    private static async Task<IResult> GetCapabilitiesAsync(ClaimsPrincipal principal, IAuthorizationService authorizationService) =>
+        TypedResults.Ok(new ContestCapabilitiesResponse((await authorizationService.AuthorizeAsync(principal, AdminPolicy)).Succeeded));
     private static async Task<IResult> GetAsync(Guid contestId, ClaimsPrincipal principal, IContestService service, CancellationToken token) =>
         await Result(() => service.GetAsync(UserId(principal), contestId, token));
     private static async Task<IResult> JoinAsync(Guid contestId, JoinContestRequest request, ClaimsPrincipal principal, IContestService service, CancellationToken token) =>
         await Result(() => service.JoinAsync(UserId(principal), contestId, request.ClientOperationId, token));
+    private static async Task<IResult> CreateAsync(CreateContestRequest request, ClaimsPrincipal principal, IContestService service, CancellationToken token)
+    {
+        try
+        {
+            var contest = await service.CreateAsync(UserId(principal), request, token);
+            return TypedResults.Created($"/api/v1/contests/{contest.Id}", contest);
+        }
+        catch (ContestValidationException) { return TypedResults.BadRequest(); }
+    }
 
     private static async Task<IResult> Result<T>(Func<Task<T>> action)
     {

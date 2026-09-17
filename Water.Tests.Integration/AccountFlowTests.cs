@@ -592,11 +592,44 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     }
 
     [Fact]
+    public async Task Only_configured_administrator_can_publish_global_contests()
+    {
+        const string password = "waterly123";
+        const string adminEmail = "contest-admin@example.com";
+        var userEmail = $"contest-user-{Guid.NewGuid():N}@example.com";
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new { email = adminEmail, password });
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new { email = userEmail, password });
+        var admin = await LoginAsync(adminEmail, password);
+        var user = await LoginAsync(userEmail, password);
+        var request = new CreateContestRequest("Community challenge", new DateOnly(2026, 9, 16), 7);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.AccessToken);
+        Assert.False((await _client.GetFromJsonAsync<ContestCapabilitiesResponse>("/api/v1/contests/capabilities"))!.CanManageContests);
+        Assert.Equal(HttpStatusCode.Forbidden, (await _client.PostAsJsonAsync("/api/v1/admin/contests", request)).StatusCode);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", admin.AccessToken);
+        Assert.True((await _client.GetFromJsonAsync<ContestCapabilitiesResponse>("/api/v1/contests/capabilities"))!.CanManageContests);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.PostAsJsonAsync("/api/v1/admin/contests", request with { DurationDays = 8 })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.PostAsJsonAsync("/api/v1/admin/contests", request with { StartsOn = new DateOnly(2026, 9, 14) })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _client.PostAsJsonAsync("/api/v1/admin/contests", request with { Name = "x" })).StatusCode);
+        var response = await _client.PostAsJsonAsync("/api/v1/admin/contests", request);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<ContestResponse>();
+        Assert.NotNull(created);
+        Assert.Equal(new DateOnly(2026, 9, 23), created.EndsOn);
+        Assert.Equal(100, created.DailyScoreCap);
+        Assert.Equal(1, created.ScoringRuleVersion);
+        Assert.Contains((await _client.GetFromJsonAsync<ContestResponse[]>("/api/v1/contests"))!, item => item.Id == created.Id);
+    }
+
+    [Fact]
     public async Task Contest_endpoints_require_authentication()
     {
         using var client = factory.CreateClient();
         var id = Guid.NewGuid();
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/contests")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/contests/capabilities")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/admin/contests", new CreateContestRequest("Contest", new DateOnly(2026, 9, 16), 7))).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/api/v1/contests/{id}")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync($"/api/v1/contests/{id}/join", new JoinContestRequest(Guid.NewGuid()))).StatusCode);
     }

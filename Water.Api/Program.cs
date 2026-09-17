@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Authorization;
 using Water.Api.Features.Profiles;
 using Water.Api.Features.Hydration;
 using Water.Api.Features.Habits;
@@ -19,7 +20,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddValidation();
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options => options.AddPolicy(ContestEndpoints.AdminPolicy, policy =>
+    policy.RequireAuthenticatedUser().AddRequirements(new ContestAdminRequirement())));
+builder.Services.AddScoped<IAuthorizationHandler, ContestAdminAuthorizationHandler>();
 builder.Services.AddHealthChecks();
 builder.Services.AddCors(options =>
 {
