@@ -10,16 +10,21 @@ public static class ContestEndpoints
 
     public static IEndpointRouteBuilder MapContestEndpoints(this IEndpointRouteBuilder endpoints, bool requireRateLimiting = true)
     {
-        var group = endpoints.MapGroup("/api/v1").RequireAuthorization().WithTags("Contests");
-        if (requireRateLimiting) group.RequireRateLimiting("social");
-        group.MapGet("/contests", GetAllAsync);
-        group.MapGet("/contests/capabilities", GetCapabilitiesAsync);
-        group.MapGet("/contests/{contestId:guid}", GetAsync);
-        group.MapGet("/contests/{contestId:guid}/score", GetScoreAsync);
-        group.MapGet("/contests/{contestId:guid}/leaderboard", GetLeaderboardAsync);
-        group.MapGet("/medals", GetMedalsAsync);
-        group.MapPost("/contests/{contestId:guid}/join", JoinAsync);
-        group.MapPost("/admin/contests", CreateAsync).RequireAuthorization(AdminPolicy);
+        var reads = endpoints.MapGroup("/api/v1").RequireAuthorization().WithTags("Contests");
+        var writes = endpoints.MapGroup("/api/v1").RequireAuthorization().WithTags("Contests");
+        if (requireRateLimiting)
+        {
+            reads.RequireRateLimiting("contest-read");
+            writes.RequireRateLimiting("contest-write");
+        }
+        reads.MapGet("/contests", GetAllAsync);
+        reads.MapGet("/contests/capabilities", GetCapabilitiesAsync);
+        reads.MapGet("/contests/{contestId:guid}", GetAsync);
+        reads.MapGet("/contests/{contestId:guid}/score", GetScoreAsync);
+        reads.MapGet("/contests/{contestId:guid}/leaderboard", GetLeaderboardAsync);
+        reads.MapGet("/medals", GetMedalsAsync);
+        writes.MapPost("/contests/{contestId:guid}/join", JoinAsync);
+        writes.MapPost("/admin/contests", CreateAsync).RequireAuthorization(AdminPolicy);
         return endpoints;
     }
 

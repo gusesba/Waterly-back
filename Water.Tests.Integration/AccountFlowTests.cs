@@ -646,6 +646,37 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     }
 
     [Fact]
+    public async Task Contest_leaderboard_projection_updates_after_hydration_delete_without_score_read()
+    {
+        const string password = "waterly123";
+        var email = $"contest-delete-{Guid.NewGuid():N}@example.com";
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password });
+        var tokens = await LoginAsync(email, password);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+        (await _client.PutAsJsonAsync("/api/v1/me/onboarding", new CompleteOnboardingRequest(28, 178, 74.5m, 1000, ["habit"], "UTC"))).EnsureSuccessStatusCode();
+
+        Contest contest;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            contest = new Contest("Delete projection", new DateOnly(2026, 9, 15), 7, new DateTimeOffset(2026, 9, 15, 0, 0, 0, TimeSpan.Zero));
+            db.Contests.Add(contest);
+            await db.SaveChangesAsync();
+        }
+
+        (await _client.PostAsJsonAsync($"/api/v1/contests/{contest.Id}/join", new JoinContestRequest(Guid.NewGuid()))).EnsureSuccessStatusCode();
+        var hydration = await (await _client.PostAsJsonAsync("/api/v1/hydration/entries", new AddDrinkEntryRequest(
+            Guid.NewGuid(), 1000, new DateTimeOffset(2026, 9, 15, 14, 0, 0, TimeSpan.Zero), "UTC"))).Content.ReadFromJsonAsync<TodayHydrationResponse>();
+        var leaderboard = await _client.GetFromJsonAsync<ContestLeaderboardResponse>($"/api/v1/contests/{contest.Id}/leaderboard?page=1&pageSize=10");
+        Assert.Equal(100m, leaderboard!.Entries.Single().TotalScore);
+
+        var entry = hydration!.Entries.Single();
+        (await _client.DeleteAsync($"/api/v1/hydration/entries/{entry.Id}?clientOperationId={Guid.NewGuid()}")).EnsureSuccessStatusCode();
+        leaderboard = await _client.GetFromJsonAsync<ContestLeaderboardResponse>($"/api/v1/contests/{contest.Id}/leaderboard?page=1&pageSize=10");
+        Assert.Equal(0m, leaderboard!.Entries.Single().TotalScore);
+    }
+
+    [Fact]
     public async Task Contest_leaderboard_is_global_private_paginated_and_shares_tied_positions()
     {
         const string password = "waterly123";
@@ -930,6 +961,38 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     }
 
     [Fact]
+    public async Task Contest_read_limit_is_partitioned_by_authenticated_user()
+    {
+        var limitedFactory = new RateLimitedWaterApiFactory();
+        await limitedFactory.InitializeAsync();
+        try
+        {
+            var client = limitedFactory.CreateClient();
+            const string password = "waterly123";
+            var firstEmail = $"limited-a-{Guid.NewGuid():N}@example.com";
+            var secondEmail = $"limited-b-{Guid.NewGuid():N}@example.com";
+            await client.PostAsJsonAsync("/api/v1/auth/register", new { email = firstEmail, password });
+            await client.PostAsJsonAsync("/api/v1/auth/register", new { email = secondEmail, password });
+            var first = await LoginAsync(client, firstEmail, password);
+            var second = await LoginAsync(client, secondEmail, password);
+
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", first.AccessToken);
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/v1/contests")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/v1/contests")).StatusCode);
+            var rejected = await client.GetAsync("/api/v1/contests");
+            Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
+            Assert.NotNull(rejected.Headers.RetryAfter);
+
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", second.AccessToken);
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/v1/contests")).StatusCode);
+        }
+        finally
+        {
+            await limitedFactory.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task Private_group_enforces_membership_ownership_and_friendship()
     {
         const string password = "waterly123";
@@ -1171,5 +1234,13 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
             ?? throw new InvalidOperationException("Login response has no refresh token.");
 
         return (accessToken, refreshToken);
+    }
+
+    private static async Task<(string AccessToken, string RefreshToken)> LoginAsync(HttpClient client, string email, string password)
+    {
+        var response = await client.PostAsJsonAsync("/api/v1/auth/login?useCookies=false", new { email, password });
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return (payload.GetProperty("accessToken").GetString()!, payload.GetProperty("refreshToken").GetString()!);
     }
 }

@@ -29,3 +29,19 @@ through the deployment platform's secret store. Never commit that token.
 dotnet build Water.slnx
 dotnet test Water.slnx
 ```
+
+## Leaderboard load test
+
+The load fixture targets a disposable local database. It removes only users whose identifiers start with
+`load-user-` and recreates contest `60000000-0000-0000-0000-000000000001`.
+
+```powershell
+Get-Content -Raw tests/load/seed-contest.sql | docker compose exec -T postgres psql -U waterly -d waterly -v participant_count=10000
+$env:ACCESS_TOKEN="<authenticated access token>"
+$env:RateLimits__ContestReadPermitLimit="100000"
+k6 run tests/load/contest-leaderboard.js
+```
+
+The default scenario runs 25 virtual users for five minutes and requires less than 1% failed requests and
+leaderboard p95 below 500 ms. Restart the API after setting the dedicated load-test rate limit.
+`BASE_URL`, `CONTEST_ID`, `VUS`, and `DURATION` can be overridden.

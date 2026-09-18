@@ -6,7 +6,7 @@ using Water.Infrastructure.Persistence;
 
 namespace Water.Infrastructure.Competition;
 
-public sealed class ContestService(WaterDbContext dbContext, TimeProvider timeProvider) : IContestService
+public sealed class ContestService(WaterDbContext dbContext, TimeProvider timeProvider, IContestScoreService scoreService) : IContestService
 {
     public async Task<IReadOnlyCollection<ContestResponse>> GetAllAsync(string userId, CancellationToken token)
     {
@@ -46,6 +46,7 @@ public sealed class ContestService(WaterDbContext dbContext, TimeProvider timePr
             await dbContext.SaveChangesAsync(token);
         }
         await transaction.CommitAsync(token);
+        await scoreService.RefreshUserAsync(userId, token);
         return (await MapAsync([contest], userId, token)).Single();
     }
 

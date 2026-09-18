@@ -2,18 +2,35 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
+## Etapa 6A — Hardening de rankings e proteção contra abuso
+
+Data: 2026-09-18
+
+### Backend — `não commitado`
+
+- Atualização da pontuação dos concursos ativos após entrada, edição ou exclusão de hidratação e após participação, inclusive na recuperação de comandos idempotentes.
+- Leaderboard provisório estritamente de leitura, paginado por consulta com funções de janela para calcular posição competitiva e empates sem consultas por pontuação.
+- Rate limits configuráveis separados para leitura e mutação de concursos, partição social por usuário autenticado, autenticação por IP, limite global de concorrência e `Retry-After` em respostas `429`.
+- Teste de integração do isolamento do limite entre contas e cenário k6 reproduzível com massa PostgreSQL de 1.000 ou 10.000 participantes.
+
+### Frontend — `não commitado`
+
+- Ranking preserva páginas já carregadas durante throttling, respeita `Retry-After` e bloqueia novas tentativas até o prazo indicado pelo servidor.
+- Mensagens específicas de excesso de solicitações em português e inglês e teste da interpretação do intervalo de retentativa.
+- CI passa a executar os testes Vitest além de lint e TypeScript.
+
 ## Etapa 5G — Push de resultados de concursos
 
 Data: 2026-09-17
 
-### Backend — `não commitado`
+### Backend — `364a7b5` (`5g`)
 
 - Cadastro autenticado e idempotente de instalações Expo por conta, plataforma e idioma, com desativação explícita e isolamento entre usuários.
 - Outbox transacional de resultados de concursos por instalação, deduplicada por concurso e versão da regra, incluindo participantes sem recompensa.
 - Worker configurável com envio em lotes ao Expo Push Service, retentativa progressiva, consulta de receipts e desativação automática de tokens `DeviceNotRegistered`.
 - Migration `AddPushNotificationOutbox`, configuração desabilitada por padrão e testes de autenticação, propriedade da instalação, idempotência, conteúdo da recompensa e token inválido.
 
-### Frontend — `não commitado`
+### Frontend — `8e77100` (`5g`)
 
 - Opt-in separado para novidades de concursos na tela de lembretes, sem alterar os lembretes locais existentes.
 - Registro e renovação do Expo Push Token por conta, desativação no opt-out/logout e tratamento de permissão negada, web e dispositivo não físico.

@@ -10,7 +10,7 @@ using Water.Infrastructure.Persistence;
 
 namespace Water.Tests.Integration;
 
-public sealed class WaterApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public class WaterApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
 
@@ -23,6 +23,10 @@ public sealed class WaterApiFactory : WebApplicationFactory<Program>, IAsyncLife
                 ["DailyClosure:Enabled"] = "false",
                 ["ContestClosure:Enabled"] = "false",
                 ["PushNotifications:Enabled"] = "false",
+                ["RateLimits:AuthPermitLimit"] = "10000",
+                ["RateLimits:SocialPermitLimit"] = "10000",
+                ["RateLimits:ContestReadPermitLimit"] = "10000",
+                ["RateLimits:ContestWritePermitLimit"] = "10000",
                 ["Administration:ContestAdminEmails:0"] = "contest-admin@example.com"
             }));
         builder.ConfigureServices(services =>
@@ -55,4 +59,13 @@ public sealed class WaterApiFactory : WebApplicationFactory<Program>, IAsyncLife
 internal sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
 {
     public override DateTimeOffset GetUtcNow() => utcNow;
+}
+
+public sealed class RateLimitedWaterApiFactory : WaterApiFactory
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+        builder.UseEnvironment("RateLimitTesting");
+    }
 }

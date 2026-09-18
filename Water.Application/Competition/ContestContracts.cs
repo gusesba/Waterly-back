@@ -51,6 +51,7 @@ public interface IContestService
 public interface IContestScoreService
 {
     Task<ContestScoreResponse> GetAsync(string userId, Guid contestId, CancellationToken token);
+    Task RefreshUserAsync(string userId, CancellationToken token);
     Task RefreshContestAsync(Guid contestId, CancellationToken token);
     Task FinalizeThroughAsync(string userId, DateOnly closeThrough, CancellationToken token);
 }

@@ -6,7 +6,6 @@ namespace Water.Infrastructure.Competition;
 
 public sealed class ContestLeaderboardService(
     WaterDbContext dbContext,
-    IContestScoreService scoreService,
     TimeProvider timeProvider) : IContestLeaderboardService
 {
     public async Task<ContestLeaderboardResponse> GetAsync(
@@ -22,43 +21,40 @@ public sealed class ContestLeaderboardService(
         if (await dbContext.ContestFinalizations.AsNoTracking().AnyAsync(item => item.ContestId == contestId, token))
             return await GetFinalAsync(userId, contestId, page, pageSize, token);
 
-        await scoreService.RefreshContestAsync(contestId, token);
-
-        var participants = dbContext.ContestParticipants.AsNoTracking()
-            .Where(item => item.ContestId == contestId)
-            .Select(participant => new
-            {
-                participant.UserId,
-                Username = dbContext.PublicProfiles.Where(profile => profile.UserId == participant.UserId).Select(profile => profile.Username).SingleOrDefault(),
-                DisplayName = dbContext.PublicProfiles.Where(profile => profile.UserId == participant.UserId).Select(profile => profile.DisplayName).SingleOrDefault(),
-                SortName = dbContext.PublicProfiles.Where(profile => profile.UserId == participant.UserId).Select(profile => profile.NormalizedUsername).SingleOrDefault(),
-                TotalScore = dbContext.ContestDailyScores.Where(score => score.ContestId == contestId && score.UserId == participant.UserId).Sum(score => (decimal?)score.Score) ?? 0,
-                ScoredDays = dbContext.ContestDailyScores.Count(score => score.ContestId == contestId && score.UserId == participant.UserId)
-            });
-        var totalCount = await participants.CountAsync(token);
         var offset = (page - 1) * pageSize;
-        var pageRows = await participants
-            .OrderByDescending(item => item.TotalScore)
-            .ThenBy(item => item.SortName ?? item.UserId)
-            .ThenBy(item => item.UserId)
-            .Skip(offset)
-            .Take(pageSize)
-            .ToArrayAsync(token);
-
-        var positions = new Dictionary<decimal, int>();
-        var ties = new Dictionary<decimal, bool>();
-        foreach (var score in pageRows.Select(item => item.TotalScore).Distinct())
-        {
-            positions[score] = await participants.CountAsync(item => item.TotalScore > score, token) + 1;
-            ties[score] = await participants.CountAsync(item => item.TotalScore == score, token) > 1;
-        }
+        var totalCount = await dbContext.ContestParticipants.AsNoTracking().CountAsync(item => item.ContestId == contestId, token);
+        var pageRows = await dbContext.Database.SqlQuery<ProvisionalLeaderboardRow>($"""
+            WITH scores AS (
+                SELECT participant."UserId",
+                       profile."Username",
+                       profile."DisplayName",
+                       profile."NormalizedUsername" AS "SortName",
+                       COALESCE(SUM(score."Score"), 0.0) AS "TotalScore",
+                       CAST(COUNT(score."Id") AS INTEGER) AS "ScoredDays"
+                FROM "ContestParticipants" AS participant
+                LEFT JOIN "PublicProfiles" AS profile ON profile."UserId" = participant."UserId"
+                LEFT JOIN "ContestDailyScores" AS score
+                    ON score."ContestId" = participant."ContestId" AND score."UserId" = participant."UserId"
+                WHERE participant."ContestId" = {contestId}
+                GROUP BY participant."UserId", profile."Username", profile."DisplayName", profile."NormalizedUsername"
+            ), ranked AS (
+                SELECT "UserId", "Username", "DisplayName", "SortName", "TotalScore", "ScoredDays",
+                       CAST(RANK() OVER (ORDER BY "TotalScore" DESC) AS INTEGER) AS "Position",
+                       CAST(COUNT(*) OVER (PARTITION BY "TotalScore") AS INTEGER) AS "TieCount"
+                FROM scores
+            )
+            SELECT "UserId", "Username", "DisplayName", "TotalScore", "ScoredDays", "Position", "TieCount"
+            FROM ranked
+            ORDER BY "TotalScore" DESC, COALESCE("SortName", "UserId"), "UserId"
+            LIMIT {pageSize} OFFSET {offset}
+            """).ToArrayAsync(token);
         var entries = pageRows.Select(item => new ContestLeaderboardEntryResponse(
-            positions[item.TotalScore],
+            item.Position,
             item.Username,
             item.DisplayName,
             item.TotalScore,
             item.ScoredDays,
-            ties[item.TotalScore],
+            item.TieCount > 1,
             0,
             0,
             null,
@@ -112,5 +108,16 @@ public sealed class ContestLeaderboardService(
             prestige.GetValueOrDefault(item.UserId),
             medalPositions.TryGetValue(item.UserId, out var medalPosition) ? medalPosition : null,
             item.UserId == userId)).ToArray(), totalCount, page, pageSize, true);
+    }
+
+    private sealed class ProvisionalLeaderboardRow
+    {
+        public required string UserId { get; init; }
+        public string? Username { get; init; }
+        public string? DisplayName { get; init; }
+        public decimal TotalScore { get; init; }
+        public int ScoredDays { get; init; }
+        public int Position { get; init; }
+        public int TieCount { get; init; }
     }
 }

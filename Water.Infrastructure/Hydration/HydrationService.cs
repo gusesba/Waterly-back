@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Water.Application.Competition;
 using Water.Application.Hydration;
 using Water.Domain.Hydration;
 using Water.Infrastructure.Persistence;
@@ -7,7 +8,8 @@ namespace Water.Infrastructure.Hydration;
 
 public sealed class HydrationService(
     WaterDbContext dbContext,
-    TimeProvider timeProvider) : IHydrationService
+    TimeProvider timeProvider,
+    IContestScoreService contestScoreService) : IHydrationService
 {
     public async Task<TodayHydrationResponse> GetTodayAsync(
         string userId,
@@ -39,6 +41,7 @@ public sealed class HydrationService(
         if (existing is not null)
         {
             EnsureMatchingRequest(existing, request);
+            await contestScoreService.RefreshUserAsync(userId, cancellationToken);
             return await BuildTodayAsync(userId, context, cancellationToken);
         }
 
@@ -71,6 +74,7 @@ public sealed class HydrationService(
             EnsureMatchingRequest(concurrentEntry, request);
         }
 
+        await contestScoreService.RefreshUserAsync(userId, cancellationToken);
         return await BuildTodayAsync(userId, context, cancellationToken);
     }
 
@@ -86,6 +90,7 @@ public sealed class HydrationService(
             userId, request.ClientOperationId, entryId, "update", payload, cancellationToken))
         {
             var processedContext = await GetTodayContextAsync(userId, cancellationToken);
+            await contestScoreService.RefreshUserAsync(userId, cancellationToken);
             return await BuildTodayAsync(userId, processedContext, cancellationToken);
         }
 
@@ -114,6 +119,7 @@ public sealed class HydrationService(
             }
         }
 
+        await contestScoreService.RefreshUserAsync(userId, cancellationToken);
         var context = await GetTodayContextAsync(userId, cancellationToken);
         return await BuildTodayAsync(userId, context, cancellationToken);
     }
@@ -129,6 +135,7 @@ public sealed class HydrationService(
             userId, clientOperationId, entryId, "delete", string.Empty, cancellationToken))
         {
             var processedContext = await GetTodayContextAsync(userId, cancellationToken);
+            await contestScoreService.RefreshUserAsync(userId, cancellationToken);
             return await BuildTodayAsync(userId, processedContext, cancellationToken);
         }
 
@@ -153,6 +160,7 @@ public sealed class HydrationService(
             }
         }
 
+        await contestScoreService.RefreshUserAsync(userId, cancellationToken);
         var context = await GetTodayContextAsync(userId, cancellationToken);
         return await BuildTodayAsync(userId, context, cancellationToken);
     }

@@ -18,6 +18,21 @@ public sealed class ContestScoreService(WaterDbContext dbContext, IDailyHydratio
         return await MapAsync(contest, userId, token);
     }
 
+    public async Task RefreshUserAsync(string userId, CancellationToken token)
+    {
+        var today = await LocalTodayAsync(userId, token);
+        var participations = await (from participant in dbContext.ContestParticipants
+                                    join contest in dbContext.Contests on participant.ContestId equals contest.Id
+                                    where participant.UserId == userId && contest.StartsOn <= today && contest.EndsOn > today
+                                    select new { Contest = contest, Participant = participant })
+            .ToArrayAsync(token);
+        if (participations.Length == 0) return;
+
+        await projectionService.RebuildAsync(userId, token);
+        foreach (var participation in participations)
+            await RefreshScoresAsync(participation.Contest, participation.Participant, today, today.AddDays(-1), token);
+    }
+
     public async Task FinalizeThroughAsync(string userId, DateOnly closeThrough, CancellationToken token)
     {
         var participations = await dbContext.ContestParticipants.Where(item => item.UserId == userId).ToArrayAsync(token);
@@ -43,6 +58,11 @@ public sealed class ContestScoreService(WaterDbContext dbContext, IDailyHydratio
     private async Task RefreshAsync(Contest contest, ContestParticipant participant, DateOnly through, DateOnly finalizeThrough, CancellationToken token)
     {
         await projectionService.RebuildAsync(participant.UserId, token);
+        await RefreshScoresAsync(contest, participant, through, finalizeThrough, token);
+    }
+
+    private async Task RefreshScoresAsync(Contest contest, ContestParticipant participant, DateOnly through, DateOnly finalizeThrough, CancellationToken token)
+    {
         var firstDate = Max(contest.StartsOn, participant.EligibleFrom ?? DateOnly.FromDateTime(participant.JoinedAt.UtcDateTime));
         var lastDate = Min(through, contest.EndsOn.AddDays(-1));
         if (lastDate < firstDate) return;
