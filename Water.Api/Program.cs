@@ -18,6 +18,8 @@ using Water.Api.Features.Notifications;
 using Water.Infrastructure;
 using Water.Infrastructure.Identity;
 using Water.Api;
+using Water.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -122,6 +124,20 @@ if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"
 }
 app.UseCors();
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (userId is not null && context.Request.Path.StartsWithSegments("/api/v1"))
+    {
+        var dbContext = context.RequestServices.GetRequiredService<WaterDbContext>();
+        if (!await dbContext.Users.AsNoTracking().AnyAsync(item => item.Id == userId, context.RequestAborted))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+    }
+    await next(context);
+});
 app.UseRateLimiter();
 app.UseAuthorization();
 

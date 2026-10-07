@@ -29,7 +29,7 @@ public sealed class ContestResult
 
     public Guid Id { get; private set; }
     public Guid ContestId { get; private set; }
-    public string UserId { get; private set; } = string.Empty;
+    public string? UserId { get; private set; }
     public int Position { get; private set; }
     public decimal TotalScore { get; private set; }
     public int ScoredDays { get; private set; }
@@ -37,4 +37,11 @@ public sealed class ContestResult
     public string? Username { get; private set; }
     public string? DisplayName { get; private set; }
     public DateTimeOffset FinalizedAt { get; private set; }
+
+    public void Anonymize()
+    {
+        UserId = null;
+        Username = null;
+        DisplayName = null;
+    }
 }

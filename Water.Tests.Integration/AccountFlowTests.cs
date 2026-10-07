@@ -176,6 +176,54 @@ public sealed class AccountFlowTests(WaterApiFactory factory) : IClassFixture<Wa
     }
 
     [Fact]
+    public async Task Account_can_export_data_and_delete_with_password_confirmation()
+    {
+        var email = $"privacy-{Guid.NewGuid():N}@example.com";
+        const string password = "waterly123";
+        (await _client.PostAsJsonAsync("/api/v1/auth/register", new { email, password })).EnsureSuccessStatusCode();
+        var tokens = await LoginAsync(email, password);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
+        (await _client.PutAsJsonAsync("/api/v1/me/onboarding", new CompleteOnboardingRequest(
+            30, 175, 70, 2400, ["habit"], "UTC"))).EnsureSuccessStatusCode();
+        string userId;
+        using (var initialScope = factory.Services.CreateScope())
+        {
+            var initialDb = initialScope.ServiceProvider.GetRequiredService<WaterDbContext>();
+            userId = (await initialDb.Users.SingleAsync(item => item.Email == email)).Id;
+        }
+
+        var exportResponse = await _client.GetAsync("/api/v1/me/export");
+        exportResponse.EnsureSuccessStatusCode();
+        using var export = JsonDocument.Parse(await exportResponse.Content.ReadAsStringAsync());
+        Assert.Equal(1, export.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(email, export.RootElement.GetProperty("account").GetProperty("email").GetString());
+        var exportJson = export.RootElement.GetRawText();
+        Assert.DoesNotContain("passwordHash", exportJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("refreshToken", exportJson, StringComparison.OrdinalIgnoreCase);
+
+        var wrongPassword = await _client.PostAsJsonAsync("/api/v1/me/deletion", new { currentPassword = "incorrect" });
+        Assert.Equal(HttpStatusCode.BadRequest, wrongPassword.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync("/api/v1/me")).StatusCode);
+
+        var deleted = await _client.PostAsJsonAsync("/api/v1/me/deletion", new { currentPassword = password });
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await _client.GetAsync("/api/v1/me")).StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
+        Assert.False(await db.Users.AnyAsync(item => item.Email == email));
+        Assert.False(await db.Profiles.AnyAsync(item => item.UserId == userId));
+    }
+
+    [Fact]
+    public async Task Account_privacy_requires_authentication()
+    {
+        using var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/me/export")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/me/deletion", new { currentPassword = "waterly123" })).StatusCode);
+    }
+
+    [Fact]
     public async Task Hydration_requires_authentication()
     {
         using var client = factory.CreateClient();

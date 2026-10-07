@@ -380,7 +380,7 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
             result.Property(item => item.Username).HasMaxLength(20);
             result.Property(item => item.DisplayName).HasMaxLength(40);
             result.HasOne<Contest>().WithMany().HasForeignKey(item => item.ContestId).OnDelete(DeleteBehavior.Cascade);
-            result.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Restrict);
+            result.HasOne<ApplicationUser>().WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<ContestRewardCheckpoint>(checkpoint =>

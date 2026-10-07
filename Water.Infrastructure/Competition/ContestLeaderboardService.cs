@@ -77,12 +77,12 @@ public sealed class ContestLeaderboardService(
         var results = dbContext.ContestResults.AsNoTracking().Where(item => item.ContestId == contestId);
         var totalCount = await results.CountAsync(token);
         var rows = await results.OrderBy(item => item.Position)
-            .ThenBy(item => item.Username ?? item.UserId)
+            .ThenBy(item => item.Username ?? item.UserId ?? string.Empty)
             .ThenBy(item => item.UserId)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToArrayAsync(token);
-        var userIds = rows.Select(item => item.UserId).ToArray();
+        var userIds = rows.Where(item => item.UserId is not null).Select(item => item.UserId!).ToArray();
         var referenceId = contestId.ToString();
         var drops = await dbContext.DropsLedgerEntries.AsNoTracking()
             .Where(item => userIds.Contains(item.UserId) && item.ReferenceType == "contest" && item.ReferenceId == referenceId)
@@ -104,9 +104,9 @@ public sealed class ContestLeaderboardService(
             item.TotalScore,
             item.ScoredDays,
             item.IsTied,
-            drops.GetValueOrDefault(item.UserId),
-            prestige.GetValueOrDefault(item.UserId),
-            medalPositions.TryGetValue(item.UserId, out var medalPosition) ? medalPosition : null,
+            item.UserId is null ? 0 : drops.GetValueOrDefault(item.UserId),
+            item.UserId is null ? 0 : prestige.GetValueOrDefault(item.UserId),
+            item.UserId is not null && medalPositions.TryGetValue(item.UserId, out var medalPosition) ? medalPosition : null,
             item.UserId == userId)).ToArray(), totalCount, page, pageSize, true);
     }
 

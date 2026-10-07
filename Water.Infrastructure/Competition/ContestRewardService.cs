@@ -51,34 +51,35 @@ public sealed class ContestRewardService(WaterDbContext dbContext, TimeProvider 
 
         foreach (var result in results)
         {
+            var resultUserId = result.UserId!;
             var dropsReward = 0;
             var prestigeReward = 0;
             int? medalPosition = null;
             if (result.TotalScore > 0)
             {
-                AddReward(result.UserId, definitions[0], "contest-participation", referenceId,
+                AddReward(resultUserId, definitions[0], "contest-participation", referenceId,
                     $"contest:{contestId:N}:participation:v{contest.RewardRuleVersion}", now);
                 dropsReward += definitions[0].DropsReward;
                 prestigeReward += definitions[0].PrestigeReward;
                 if (result.Position is >= 1 and <= 3 && definitions.TryGetValue(result.Position, out var placement))
                 {
-                    AddReward(result.UserId, placement, "contest-placement", referenceId,
+                    AddReward(resultUserId, placement, "contest-placement", referenceId,
                         $"contest:{contestId:N}:placement:{result.Position}:v{contest.RewardRuleVersion}", now);
                     dropsReward += placement.DropsReward;
                     prestigeReward += placement.PrestigeReward;
                     medalPosition = result.Position;
-                    dbContext.UserMedals.Add(new UserMedal(medal.Id, result.UserId, result.Position, contest.RewardRuleVersion, now));
+                    dbContext.UserMedals.Add(new UserMedal(medal.Id, resultUserId, result.Position, contest.RewardRuleVersion, now));
                     dbContext.FeedEvents.Add(new FeedEvent(
-                        result.UserId,
+                        resultUserId,
                         "contest-medal",
                         "friends",
                         referenceId,
                         contest.Name,
-                        $"contest-medal:{contestId:N}:{result.UserId}:v{contest.RewardRuleVersion}",
+                        $"contest-medal:{contestId:N}:{resultUserId}:v{contest.RewardRuleVersion}",
                         now));
                 }
             }
-            await notificationOutbox.QueueResultAsync(result.UserId, contestId, contest.Name, result.Position, dropsReward, prestigeReward, medalPosition, contest.RewardRuleVersion, now, token);
+            await notificationOutbox.QueueResultAsync(resultUserId, contestId, contest.Name, result.Position, dropsReward, prestigeReward, medalPosition, contest.RewardRuleVersion, now, token);
         }
 
         dbContext.ContestRewardCheckpoints.Add(new ContestRewardCheckpoint(contestId, contest.RewardRuleVersion, now));

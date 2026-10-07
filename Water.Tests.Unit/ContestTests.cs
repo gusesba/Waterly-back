@@ -29,4 +29,18 @@ public sealed class ContestTests
     {
         Assert.Equal(expected, ContestDailyScore.Calculate(2000, hydrationMl, 100));
     }
+
+    [Fact]
+    public void Final_result_can_be_anonymized_without_changing_score()
+    {
+        var result = new ContestResult(Guid.NewGuid(), "user", 2, 650, 7, false, "person", "Person", DateTimeOffset.UtcNow);
+
+        result.Anonymize();
+
+        Assert.Null(result.UserId);
+        Assert.Null(result.Username);
+        Assert.Null(result.DisplayName);
+        Assert.Equal(2, result.Position);
+        Assert.Equal(650, result.TotalScore);
+    }
 }

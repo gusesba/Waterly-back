@@ -19,6 +19,12 @@ public sealed class PrivateGroup
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
+    public void TransferOwnership(string ownerId, DateTimeOffset updatedAt)
+    {
+        OwnerId = ownerId;
+        UpdatedAt = updatedAt;
+    }
+
     public void Update(string name, string? description, DateTimeOffset updatedAt)
     {
         Name = name.Trim();

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Water.Application.Profiles;
+using Water.Application.Accounts;
 
 namespace Water.Api.Features.Profiles;
 
@@ -13,8 +14,41 @@ public static class ProfileEndpoints
 
         group.MapGet("/", GetCurrentUserAsync);
         group.MapPut("/onboarding", CompleteOnboardingAsync);
+        group.MapGet("/export", ExportAccountAsync);
+        group.MapPost("/deletion", DeleteAccountAsync);
 
         return endpoints;
+    }
+
+    private static async Task<IResult> ExportAccountAsync(
+        ClaimsPrincipal principal,
+        IAccountPrivacyService accountPrivacyService,
+        CancellationToken cancellationToken)
+    {
+        var identity = GetIdentity(principal);
+        var contents = await accountPrivacyService.ExportAsync(identity.UserId, identity.Email, cancellationToken);
+        return TypedResults.File(contents, "application/json", $"waterly-export-{DateTime.UtcNow:yyyy-MM-dd}.json");
+    }
+
+    private static async Task<IResult> DeleteAccountAsync(
+        DeleteAccountRequest request,
+        ClaimsPrincipal principal,
+        IAccountPrivacyService accountPrivacyService,
+        CancellationToken cancellationToken)
+    {
+        var identity = GetIdentity(principal);
+        try
+        {
+            await accountPrivacyService.DeleteAsync(identity.UserId, request.CurrentPassword, cancellationToken);
+            return TypedResults.NoContent();
+        }
+        catch (InvalidAccountPasswordException)
+        {
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(request.CurrentPassword)] = ["The current password is incorrect."]
+            });
+        }
     }
 
     private static async Task<IResult> GetCurrentUserAsync(

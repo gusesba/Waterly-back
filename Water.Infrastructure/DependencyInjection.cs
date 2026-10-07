@@ -22,6 +22,8 @@ using Water.Application.Competition;
 using Water.Infrastructure.Competition;
 using Water.Application.Notifications;
 using Water.Infrastructure.Notifications;
+using Water.Application.Accounts;
+using Water.Infrastructure.Accounts;
 
 namespace Water.Infrastructure;
 
@@ -51,6 +53,7 @@ public static class DependencyInjection
         services.AddScoped<IAchievementService, AchievementService>();
         services.AddScoped<IProgressionService, ProgressionService>();
         services.AddScoped<IProfileService, ProfileService>();
+        services.AddScoped<IAccountPrivacyService, AccountPrivacyService>();
         services.AddScoped<IPublicProfileService, PublicProfileService>();
         services.AddScoped<ICosmeticService, CosmeticService>();
         services.AddScoped<IDailyClosureService, DailyClosureService>();

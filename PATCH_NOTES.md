@@ -2,18 +2,38 @@
 
 Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
 
-## Etapa 6A — Hardening de rankings e proteção contra abuso
+## Etapa 6B — Portabilidade e exclusão de conta
 
 Data: 2026-09-18
 
 ### Backend — `não commitado`
+
+- Exportação autenticada em JSON versionado com conta, perfis, hidratação, conquistas, progressão, grupos e concursos, sem credenciais, tokens ou dados privados de terceiros.
+- Exclusão transacional protegida pela senha atual, com remoção das relações sociais e dados pessoais, invalidação prática dos tokens da conta removida e limpeza dos dispositivos de push.
+- Propriedade de grupos transferida ao membro mais antigo ou grupo vazio removido; participações ativas são apagadas e resultados encerrados permanecem anônimos.
+- Migration `AddAccountPrivacy` torna o usuário do resultado final opcional e aplica `SET NULL`; endpoints `GET /api/v1/me/export` e `POST /api/v1/me/deletion`.
+- Testes de autenticação, ausência de segredos na exportação, confirmação por senha, remoção da conta, anonimização e transferência de propriedade.
+
+### Frontend — `não commitado`
+
+- Nova tela Conta e privacidade com exportação por download na web e compartilhamento de arquivo JSON no Android/iOS.
+- Exclusão com senha atual, confirmação destrutiva e mensagens localizadas em português e inglês.
+- Após a exclusão, sessão, cache, onboarding físico, snapshot e fila de hidratação, lembretes e preferência de push da conta são apagados do dispositivo.
+- Dependências Expo para arquivos e compartilhamento, além de teste das chaves locais removidas por conta.
+
+
+## Etapa 6A — Hardening de rankings e proteção contra abuso
+
+Data: 2026-09-18
+
+### Backend — `e64dbf9` (`6a`)
 
 - Atualização da pontuação dos concursos ativos após entrada, edição ou exclusão de hidratação e após participação, inclusive na recuperação de comandos idempotentes.
 - Leaderboard provisório estritamente de leitura, paginado por consulta com funções de janela para calcular posição competitiva e empates sem consultas por pontuação.
 - Rate limits configuráveis separados para leitura e mutação de concursos, partição social por usuário autenticado, autenticação por IP, limite global de concorrência e `Retry-After` em respostas `429`.
 - Teste de integração do isolamento do limite entre contas e cenário k6 reproduzível com massa PostgreSQL de 1.000 ou 10.000 participantes.
 
-### Frontend — `não commitado`
+### Frontend — `37b93df` (`6a`)
 
 - Ranking preserva páginas já carregadas durante throttling, respeita `Retry-After` e bloqueia novas tentativas até o prazo indicado pelo servidor.
 - Mensagens específicas de excesso de solicitações em português e inglês e teste da interpretação do intervalo de retentativa.

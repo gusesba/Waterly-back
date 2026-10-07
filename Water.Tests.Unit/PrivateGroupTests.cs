@@ -29,4 +29,18 @@ public sealed class PrivateGroupTests
         var expired = new GroupInvite(Guid.NewGuid(), "owner", "other-hash", now, now.AddDays(7));
         Assert.False(expired.IsAvailable(now.AddDays(7)));
     }
+
+    [Fact]
+    public void Ownership_can_be_transferred_and_membership_promoted()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var group = new PrivateGroup("old-owner", "Team", null, now);
+        var membership = new GroupMembership(group.Id, "new-owner", "member", now);
+
+        group.TransferOwnership("new-owner", now.AddMinutes(1));
+        membership.PromoteToOwner();
+
+        Assert.Equal("new-owner", group.OwnerId);
+        Assert.Equal("owner", membership.Role);
+    }
 }

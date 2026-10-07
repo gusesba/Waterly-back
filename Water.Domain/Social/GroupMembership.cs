@@ -18,4 +18,6 @@ public sealed class GroupMembership
     public string UserId { get; private set; } = string.Empty;
     public string Role { get; private set; } = "member";
     public DateTimeOffset JoinedAt { get; private set; }
+
+    public void PromoteToOwner() => Role = "owner";
 }
