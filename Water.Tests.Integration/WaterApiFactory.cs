@@ -7,12 +7,18 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Configuration;
 using Water.Infrastructure.Persistence;
+using Npgsql;
 
 namespace Water.Tests.Integration;
 
 public class WaterApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
+    private readonly string? _postgres = Environment.GetEnvironmentVariable("WATERLY_TEST_POSTGRES");
+    private readonly string _databaseName = $"waterly_test_{Guid.NewGuid():N}";
+    private bool _databaseCreated;
+
+    private string PostgresConnection(string database) => new NpgsqlConnectionStringBuilder(_postgres) { Database = database }.ConnectionString;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -35,7 +41,11 @@ public class WaterApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll<IDbContextOptionsConfiguration<WaterDbContext>>();
             services.RemoveAll<WaterDbContext>();
             services.RemoveAll<TimeProvider>();
-            services.AddDbContext<WaterDbContext>(options => options.UseSqlite(_connection));
+            services.AddDbContext<WaterDbContext>(options =>
+            {
+                if (string.IsNullOrWhiteSpace(_postgres)) options.UseSqlite(_connection);
+                else options.UseNpgsql(PostgresConnection(_databaseName));
+            });
             services.AddSingleton<TimeProvider>(new FixedTimeProvider(
                 new DateTimeOffset(2026, 9, 15, 15, 0, 0, TimeSpan.Zero)));
         });
@@ -43,16 +53,32 @@ public class WaterApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        await _connection.OpenAsync();
+        if (string.IsNullOrWhiteSpace(_postgres)) await _connection.OpenAsync();
+        else
+        {
+            await using var connection = new NpgsqlConnection(PostgresConnection("postgres"));
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand($"CREATE DATABASE \"{_databaseName}\"", connection);
+            await command.ExecuteNonQueryAsync();
+            _databaseCreated = true;
+        }
         using var scope = Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<WaterDbContext>();
-        await dbContext.Database.EnsureCreatedAsync();
+        if (string.IsNullOrWhiteSpace(_postgres)) await dbContext.Database.EnsureCreatedAsync();
+        else await dbContext.Database.MigrateAsync();
     }
 
     public new async Task DisposeAsync()
     {
         await base.DisposeAsync();
         await _connection.DisposeAsync();
+        if (_databaseCreated)
+        {
+            await using var connection = new NpgsqlConnection(PostgresConnection("postgres"));
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand($"DROP DATABASE \"{_databaseName}\" WITH (FORCE)", connection);
+            await command.ExecuteNonQueryAsync();
+        }
     }
 }
 

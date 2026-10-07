@@ -3,6 +3,7 @@ using Water.Application.Competition;
 using Water.Application.Hydration;
 using Water.Domain.Hydration;
 using Water.Infrastructure.Persistence;
+using Water.Infrastructure.Diagnostics;
 
 namespace Water.Infrastructure.Hydration;
 
@@ -41,6 +42,7 @@ public sealed class HydrationService(
         if (existing is not null)
         {
             EnsureMatchingRequest(existing, request);
+            WaterTelemetry.RecordHydrationReplay("create");
             await contestScoreService.RefreshUserAsync(userId, cancellationToken);
             return await BuildTodayAsync(userId, context, cancellationToken);
         }
@@ -52,7 +54,7 @@ public sealed class HydrationService(
             request.OccurredAt,
             request.TimeZone,
             beverage.Code,
-            CalculateHydrationMl(request.VolumeMl, beverage.HydrationFactor));
+            CalculateHydrationMl(request.VolumeMl, beverage.HydrationFactor), request.InputMethod);
         dbContext.DrinkEntries.Add(entry);
 
         try
@@ -72,6 +74,7 @@ public sealed class HydrationService(
             }
 
             EnsureMatchingRequest(concurrentEntry, request);
+            WaterTelemetry.RecordHydrationReplay("create");
         }
 
         await contestScoreService.RefreshUserAsync(userId, cancellationToken);
@@ -90,6 +93,7 @@ public sealed class HydrationService(
             userId, request.ClientOperationId, entryId, "update", payload, cancellationToken))
         {
             var processedContext = await GetTodayContextAsync(userId, cancellationToken);
+            WaterTelemetry.RecordHydrationReplay("update");
             await contestScoreService.RefreshUserAsync(userId, cancellationToken);
             return await BuildTodayAsync(userId, processedContext, cancellationToken);
         }
@@ -117,6 +121,7 @@ public sealed class HydrationService(
             {
                 throw;
             }
+            WaterTelemetry.RecordHydrationReplay("update");
         }
 
         await contestScoreService.RefreshUserAsync(userId, cancellationToken);
@@ -134,6 +139,7 @@ public sealed class HydrationService(
         if (await IsProcessedOperationAsync(
             userId, clientOperationId, entryId, "delete", string.Empty, cancellationToken))
         {
+            WaterTelemetry.RecordHydrationReplay("delete");
             var processedContext = await GetTodayContextAsync(userId, cancellationToken);
             await contestScoreService.RefreshUserAsync(userId, cancellationToken);
             return await BuildTodayAsync(userId, processedContext, cancellationToken);
@@ -158,6 +164,7 @@ public sealed class HydrationService(
             {
                 throw;
             }
+            WaterTelemetry.RecordHydrationReplay("delete");
         }
 
         await contestScoreService.RefreshUserAsync(userId, cancellationToken);

@@ -26,8 +26,9 @@ public sealed class ProfileService(WaterDbContext dbContext, TimeProvider timePr
         var profile = await dbContext.Profiles
             .Include(item => item.Goals)
             .SingleOrDefaultAsync(item => item.UserId == userId, cancellationToken);
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), ResolveTimeZone(profile?.TimeZone ?? "UTC")).Date);
         var hydrationGoal = await dbContext.HydrationGoals
-            .Where(item => item.UserId == userId)
+            .Where(item => item.UserId == userId && item.EffectiveFrom <= today)
             .OrderByDescending(item => item.EffectiveFrom)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -74,19 +75,25 @@ public sealed class ProfileService(WaterDbContext dbContext, TimeProvider timePr
 
         var effectiveFrom = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(timeProvider.GetUtcNow(), timeZone).Date);
         var hydrationGoal = await dbContext.HydrationGoals
-            .SingleOrDefaultAsync(
-                item => item.UserId == userId && item.EffectiveFrom == effectiveFrom,
-                cancellationToken);
+            .Where(item => item.UserId == userId && item.EffectiveFrom <= effectiveFrom)
+            .OrderByDescending(item => item.EffectiveFrom)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (hydrationGoal is null || hydrationGoal.DailyTargetMl != request.DailyTargetMl)
+        if (hydrationGoal is null)
         {
-            if (hydrationGoal is not null)
-            {
-                dbContext.HydrationGoals.Remove(hydrationGoal);
-            }
-
             hydrationGoal = new HydrationGoal(userId, request.DailyTargetMl, effectiveFrom);
             dbContext.HydrationGoals.Add(hydrationGoal);
+        }
+        else if (hydrationGoal.DailyTargetMl != request.DailyTargetMl)
+        {
+            // Repeating onboarding must follow the same frozen-day policy as goal settings.
+            var tomorrow = effectiveFrom.AddDays(1);
+            var scheduled = await dbContext.HydrationGoals.SingleOrDefaultAsync(
+                item => item.UserId == userId && item.EffectiveFrom == tomorrow, cancellationToken);
+            if (scheduled is null)
+                dbContext.HydrationGoals.Add(new HydrationGoal(userId, request.DailyTargetMl, tomorrow));
+            else
+                scheduled.UpdateTarget(request.DailyTargetMl);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

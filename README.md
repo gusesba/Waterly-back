@@ -9,6 +9,7 @@ From the repository root:
 ```powershell
 docker compose -f compose.yaml up -d
 dotnet tool restore
+$env:ASPNETCORE_ENVIRONMENT='Development'
 dotnet ef database update --project Water.Infrastructure --startup-project Water.Api
 dotnet run --project Water.Api --launch-profile http
 ```
@@ -30,15 +31,27 @@ dotnet build Water.slnx
 dotnet test Water.slnx
 ```
 
+For real PostgreSQL integration tests, backups, restore verification, telemetry, and the local dashboard,
+see [ops/README.md](ops/README.md). The current implementation audit is in
+`../Docs/estado-implementacao.md`. Health integrations and paid cosmetics are later roadmap stages.
+
 ## Leaderboard load test
 
 The load fixture targets a disposable local database. It removes only users whose identifiers start with
 `load-user-` and recreates contest `60000000-0000-0000-0000-000000000001`.
 
 ```powershell
-Get-Content -Raw tests/load/seed-contest.sql | docker compose exec -T postgres psql -U waterly -d waterly -v participant_count=10000
+$restore = ./scripts/Restore-Database.ps1 -BackupPath '<local backup.dump>'
+Get-Content -Raw tests/load/seed-contest.sql | docker compose exec -T postgres psql -U waterly -d $restore.Database -v participant_count=10000 -v ON_ERROR_STOP=1
+$env:ConnectionStrings__Water="Host=localhost;Port=5433;Database=$($restore.Database);Username=waterly;Password=waterly-local-only"
+$env:DailyClosure__Enabled='false'
+$env:ContestClosure__Enabled='false'
 $env:ACCESS_TOKEN="<authenticated access token>"
-$env:RateLimits__ContestReadPermitLimit="100000"
+$env:RateLimits__ContestReadPermitLimit="1000000"
+Set-Item 'Env:Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command' 'Warning'
+# Start a dedicated API against this database before running k6 in a second terminal.
+# dotnet run --project Water.Api --launch-profile http --urls http://localhost:5005
+$env:BASE_URL='http://localhost:5005'
 k6 run tests/load/contest-leaderboard.js
 ```
 

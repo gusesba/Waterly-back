@@ -13,7 +13,8 @@ public sealed class DrinkEntry
         DateTimeOffset occurredAt,
         string timeZone,
         string beverageCode = "water",
-        int? hydrationMl = null)
+        int? hydrationMl = null,
+        string inputMethod = "unknown")
     {
         if (clientEntryId == Guid.Empty)
         {
@@ -25,6 +26,9 @@ public sealed class DrinkEntry
             throw new ArgumentOutOfRangeException(nameof(volumeMl));
         }
 
+        if (inputMethod is not ("unknown" or "quick-add" or "custom"))
+            throw new ArgumentException("Input method is invalid.", nameof(inputMethod));
+
         Id = Guid.NewGuid();
         UserId = userId;
         ClientEntryId = clientEntryId;
@@ -34,6 +38,7 @@ public sealed class DrinkEntry
         OccurredAtUtc = occurredAt.UtcDateTime;
         TimeZone = timeZone;
         Source = "manual";
+        InputMethod = inputMethod;
         CreatedAt = DateTimeOffset.UtcNow;
     }
 
@@ -46,6 +51,7 @@ public sealed class DrinkEntry
     public DateTime OccurredAtUtc { get; private set; }
     public string TimeZone { get; private set; } = "UTC";
     public string Source { get; private set; } = "manual";
+    public string InputMethod { get; private set; } = "unknown";
     public DateTimeOffset CreatedAt { get; private set; }
 
     public void Update(int volumeMl, string beverageCode, int hydrationMl)

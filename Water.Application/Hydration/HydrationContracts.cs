@@ -7,7 +7,8 @@ public sealed record AddDrinkEntryRequest(
     [property: Range(1, 2000)] int VolumeMl,
     DateTimeOffset OccurredAt,
     [property: Required, StringLength(50)] string TimeZone,
-    [property: Required, StringLength(32)] string BeverageCode = "water");
+    [property: Required, StringLength(32)] string BeverageCode = "water",
+    [property: Required, StringLength(16), RegularExpression("^(unknown|quick-add|custom)$")] string InputMethod = "unknown");
 
 public sealed record UpdateDrinkEntryRequest(
     [property: Range(1, 2000)] int VolumeMl,

@@ -20,8 +20,11 @@ using Water.Infrastructure.Identity;
 using Water.Api;
 using Water.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Water.Api.Diagnostics;
+using Water.Api.Features.Analytics;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddWaterTelemetry();
 
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
@@ -117,6 +120,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
+app.UseMiddleware<RequestTelemetryMiddleware>();
 app.UseExceptionHandler();
 if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing") && !app.Environment.IsEnvironment("RateLimitTesting"))
 {
@@ -173,6 +177,7 @@ app.MapGroupEndpoints(!app.Environment.IsEnvironment("Testing"));
 app.MapFeedEndpoints(!app.Environment.IsEnvironment("Testing"));
 app.MapContestEndpoints();
 app.MapNotificationEndpoints(!app.Environment.IsEnvironment("Testing"));
+app.MapProductMetricsEndpoints();
 
 app.Run();
 

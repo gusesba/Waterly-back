@@ -21,6 +21,7 @@ public sealed class ContestScoreService(WaterDbContext dbContext, IDailyHydratio
     public async Task RefreshUserAsync(string userId, CancellationToken token)
     {
         var today = await LocalTodayAsync(userId, token);
+        await projectionService.RebuildAsync(userId, token);
         var participations = await (from participant in dbContext.ContestParticipants
                                     join contest in dbContext.Contests on participant.ContestId equals contest.Id
                                     where participant.UserId == userId && contest.StartsOn <= today && contest.EndsOn > today
@@ -28,7 +29,6 @@ public sealed class ContestScoreService(WaterDbContext dbContext, IDailyHydratio
             .ToArrayAsync(token);
         if (participations.Length == 0) return;
 
-        await projectionService.RebuildAsync(userId, token);
         foreach (var participation in participations)
             await RefreshScoresAsync(participation.Contest, participation.Participant, today, today.AddDays(-1), token);
     }

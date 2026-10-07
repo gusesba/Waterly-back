@@ -14,6 +14,8 @@ public sealed class AccountPrivacyService(
 {
     public async Task<byte[]> ExportAsync(string userId, string email, CancellationToken cancellationToken)
     {
+        var registeredAt = await dbContext.Users.AsNoTracking().Where(item => item.Id == userId)
+            .Select(item => item.RegisteredAt).SingleAsync(cancellationToken);
         var profile = await dbContext.Profiles.AsNoTracking().Include(item => item.Goals)
             .SingleOrDefaultAsync(item => item.UserId == userId, cancellationToken);
         var publicProfile = await dbContext.PublicProfiles.AsNoTracking()
@@ -53,7 +55,7 @@ public sealed class AccountPrivacyService(
         {
             schemaVersion = 1,
             exportedAt = timeProvider.GetUtcNow(),
-            account = new { email },
+            account = new { email, registeredAt },
             privateProfile = profile is null ? null : new
             {
                 profile.Age, profile.HeightCm, profile.WeightKg, profile.TimeZone,
@@ -66,7 +68,7 @@ public sealed class AccountPrivacyService(
             hydration = new
             {
                 goals = hydrationGoals.Select(item => new { item.DailyTargetMl, item.EffectiveFrom }),
-                entries = drinks.Select(item => new { item.Id, item.BeverageCode, item.VolumeMl, item.HydrationMl, item.OccurredAtUtc, item.TimeZone, item.Source }),
+                entries = drinks.Select(item => new { item.Id, item.BeverageCode, item.VolumeMl, item.HydrationMl, item.OccurredAtUtc, item.TimeZone, item.Source, item.InputMethod }),
                 daily = daily.Select(item => new { item.LocalDate, item.DailyTargetMl, item.HydrationMl, item.Progress })
             },
             achievements = achievements.Select(item => new { item.AchievementCode, item.UnlockedAt }),

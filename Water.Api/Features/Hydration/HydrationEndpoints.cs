@@ -15,11 +15,25 @@ public static class HydrationEndpoints
         group.MapGet("/history", GetHistoryAsync);
         group.MapGet("/beverages", GetBeveragesAsync);
         group.MapGet("/suggestions", GetSuggestionsAsync);
+        group.MapGet("/goal", GetGoalAsync);
+        group.MapPut("/goal", UpdateGoalAsync).RequireRateLimiting("social");
         group.MapPost("/entries", AddEntryAsync);
         group.MapPatch("/entries/{entryId:guid}", UpdateEntryAsync);
         group.MapDelete("/entries/{entryId:guid}", DeleteEntryAsync);
 
         return endpoints;
+    }
+
+    private static async Task<IResult> GetGoalAsync(ClaimsPrincipal principal, IHydrationGoalService service, CancellationToken token)
+    {
+        try { return TypedResults.Ok(await service.GetAsync(GetUserId(principal), token)); }
+        catch (HydrationProfileRequiredException) { return TypedResults.Conflict(); }
+    }
+
+    private static async Task<IResult> UpdateGoalAsync(UpdateHydrationGoalRequest request, ClaimsPrincipal principal, IHydrationGoalService service, CancellationToken token)
+    {
+        try { return TypedResults.Ok(await service.UpdateAsync(GetUserId(principal), request, token)); }
+        catch (HydrationProfileRequiredException) { return TypedResults.Conflict(); }
     }
 
     private static async Task<IResult> GetTodayAsync(

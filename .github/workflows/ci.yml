@@ -8,6 +8,22 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        database: [sqlite, postgres]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: waterly
+          POSTGRES_PASSWORD: waterly-test-only
+          POSTGRES_DB: postgres
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U waterly -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      WATERLY_TEST_POSTGRES: ${{ matrix.database == 'postgres' && 'Host=localhost;Port=5432;Database=postgres;Username=waterly;Password=waterly-test-only' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -17,3 +33,19 @@ jobs:
       - run: dotnet restore Water.slnx
       - run: dotnet test Water.slnx -c Release --no-restore
       - run: dotnet ef migrations script --idempotent --project Water.Infrastructure --startup-project Water.Api --configuration Release --no-build
+      - run: dotnet ef migrations has-pending-model-changes --project Water.Infrastructure --startup-project Water.Api --configuration Release --no-build
+      - name: Verify PostgreSQL backup and restore
+        if: matrix.database == 'postgres'
+        shell: bash
+        run: |
+          set -euo pipefail
+          container='${{ job.services.postgres.id }}'
+          dotnet ef database update --project Water.Infrastructure --startup-project Water.Api --configuration Release --no-build --connection 'Host=localhost;Port=5432;Database=waterly_backup_ci;Username=waterly;Password=waterly-test-only'
+          docker exec -i "$container" psql -U waterly -d waterly_backup_ci -v ON_ERROR_STOP=1 -v participant_count=10 < tests/load/seed-contest.sql
+          docker exec -i "$container" psql -U waterly -d waterly_backup_ci -v ON_ERROR_STOP=1 < tests/ops/seed-backup-ledgers.sql
+          docker exec "$container" pg_dump -U waterly -d waterly_backup_ci --format=custom --no-owner --file=/tmp/waterly-ci.dump
+          docker exec "$container" createdb -U waterly waterly_restore_ci
+          docker exec "$container" pg_restore -U waterly -d waterly_restore_ci --no-owner --exit-on-error /tmp/waterly-ci.dump
+          source=$(docker exec -i "$container" psql -U waterly -d waterly_backup_ci -At -v ON_ERROR_STOP=1 < tests/ops/backup-summary.sql)
+          restored=$(docker exec -i "$container" psql -U waterly -d waterly_restore_ci -At -v ON_ERROR_STOP=1 < tests/ops/backup-summary.sql)
+          test "$source" = "$restored"

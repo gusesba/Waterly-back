@@ -21,6 +21,8 @@ public sealed class GroupInvite
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset ExpiresAt { get; private set; }
     public DateTimeOffset? RevokedAt { get; private set; }
+    public long PreviewCount { get; private set; }
+    public long AcceptanceCount { get; private set; }
 
     public bool IsAvailable(DateTimeOffset now) => RevokedAt is null && ExpiresAt > now;
     public void Revoke(DateTimeOffset now) => RevokedAt ??= now;

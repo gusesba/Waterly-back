@@ -20,4 +20,10 @@ public sealed class HydrationGoal
     public int DailyTargetMl { get; private set; }
     public DateOnly EffectiveFrom { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
+
+    public void UpdateTarget(int dailyTargetMl)
+    {
+        if (dailyTargetMl is < 500 or > 6000) throw new ArgumentOutOfRangeException(nameof(dailyTargetMl));
+        DailyTargetMl = dailyTargetMl;
+    }
 }

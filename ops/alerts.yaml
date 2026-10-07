@@ -1,0 +1,27 @@
+groups:
+  - name: waterly
+    rules:
+      - alert: WaterlyApiHighErrorRate
+        expr: sum(rate(waterly_http_duration_seconds_count{http_response_status_code=~"5.."}[5m])) / clamp_min(sum(rate(waterly_http_duration_seconds_count[5m])), 0.001) > 0.01
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Waterly API: more than 1% server errors for 5 minutes" }
+      - alert: WaterlyApiSlow
+        expr: histogram_quantile(0.95, sum by (le) (rate(waterly_http_duration_seconds_bucket[5m]))) > 0.5
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Waterly API p95 exceeds 500 ms" }
+      - alert: WaterlyJobFailures
+        expr: sum by (job_name) (increase(waterly_job_runs_total{outcome="failure"}[15m])) > 0
+        labels: { severity: warning }
+        annotations: { summary: "A Waterly background job has failed; inspect retry/checkpoint logs" }
+      - alert: WaterlyClosureStale
+        expr: time() - waterly_job_last_success_seconds{job_name=~"daily-closure|contest-closure"} > 3600
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Waterly closure has no successful batch for over an hour" }
+      - alert: WaterlyTelemetryMissing
+        expr: absent(waterly_http_duration_seconds_count)
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "No API telemetry; check API, exporter and collector" }

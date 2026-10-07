@@ -1,0 +1,123 @@
+{
+  "uid": "waterly-beta",
+  "title": "Waterly beta",
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "15s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Requisições por segundo",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "waterly-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(waterly_http_duration_seconds_count[5m]))",
+          "legendFormat": "{{job_name}} {{outcome}} {{http_response_status_code}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Latência p95",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "waterly-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(waterly_http_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{job_name}} {{outcome}} {{http_response_status_code}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Respostas por status",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "waterly-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (http_response_status_code) (rate(waterly_http_duration_seconds_count[5m]))",
+          "legendFormat": "{{job_name}} {{outcome}} {{http_response_status_code}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Execuções de jobs",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "waterly-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (job_name, outcome) (increase(waterly_job_runs_total[15m]))",
+          "legendFormat": "{{job_name}} {{outcome}} {{http_response_status_code}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Segundos desde o último sucesso",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "waterly-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - waterly_job_last_success_seconds",
+          "legendFormat": "{{job_name}} {{outcome}} {{http_response_status_code}}"
+        }
+      ]
+    }
+  ]
+}

@@ -1,12 +1,32 @@
 # Waterly — Patch notes
 
-Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `backend` e `water`.
+Este arquivo registra o conteúdo funcional dos commits do backend e do frontend. Os nomes e hashes abaixo correspondem ao histórico real dos repositórios `Waterly-back` e `Waterly`.
+
+## Etapa 6C — Conclusão do MVP social e operações de beta
+
+Data: 2026-10-07
+
+### Backend — `não commitado`
+
+- Ranking privado de grupos em `GET /api/v1/groups/{id}/leaderboard`, paginado, com janela de sete dias, limite de 100 pontos diários, empates competitivos e apenas dados públicos. Projeções de hidratação também são atualizadas para contas sem concurso ativo.
+- Leitura e alteração de meta em `/api/v1/hydration/goal`; alterações começam no próximo dia local e preservam o dia atual e o histórico, inclusive ao repetir o onboarding.
+- Correlação validada por requisição, logs estruturados e OpenTelemetry para latência, erros, replays idempotentes de hidratação e execução/recuperação de jobs, sem exportação de payloads pessoais. Exportador OTLP opt-in, dashboard Grafana e alertas Prometheus provisionados.
+- Relatório administrativo agregado em `GET /api/v1/admin/metrics`, com retenção D1/D7/D30 por primeiro dia de hidratação e associação atual a grupos, atividade social, concursos, ledgers e filas de push. Inclui aquisição (tempo até primeiro registro conhecido, quick-add/custom, registros por dia ativo, previews/aceites), streaks e origem/destino de Drops.
+- Backup PostgreSQL e restauração em banco separado, com verificação de migrations, contas, hidratação, resultados e ledgers. Testes de integração passam a aceitar PostgreSQL real, usando bases descartáveis isoladas; CI verifica ambos os provedores, divergência do modelo EF e backup/restore com dados sintéticos.
+- Testes de privacidade/autorização, paginação, excesso de consumo, empate, edição/exclusão, metas futuras, correlação e métricas. Migration `20261007140649_AddMvpAcquisitionMetrics` adiciona cadastro conhecido, método de entrada e contadores de convites com defaults conservadores; metadados próprios também integram a exportação. 74 testes aprovados em SQLite e PostgreSQL; carga de 10 mil participantes/25 VUs/5 min com p95 de 243,57 ms e zero falhas; restauração de ledgers verificada.
+
+### Frontend — `não commitado`
+
+- Ranking de grupo com paginação, personagem público, destaque da conta atual, mensagens de erro e respeito ao throttling; alterações online e sincronização offline invalidam o ranking.
+- Alteração de meta diária e preferências de animação/haptics por conta e dispositivo, respeitando redução de movimento do sistema e apagadas na exclusão da conta.
+- Home resume grupo e concurso ativo. Perfil oferece acesso ao histórico, lembretes, meta, acessibilidade e privacidade. Contrato HTTP passa a propagar cancelamento do chamador.
+- Corrigida inicialização web do provider de push para evitar API nativa indisponível. Quick-add/custom são informados nos comandos, inclusive após compactação da fila offline, sem afetar recompensas. Novos textos em português e inglês; testes de preferências, exclusão local, cancelamento e Retry-After. Validação de TypeScript, lint e build web.
 
 ## Etapa 6B — Portabilidade e exclusão de conta
 
 Data: 2026-09-18
 
-### Backend — `não commitado`
+### Backend — `8226e23b01b6469e2c5682bdc90aec02b1307750` (`6b`)
 
 - Exportação autenticada em JSON versionado com conta, perfis, hidratação, conquistas, progressão, grupos e concursos, sem credenciais, tokens ou dados privados de terceiros.
 - Exclusão transacional protegida pela senha atual, com remoção das relações sociais e dados pessoais, invalidação prática dos tokens da conta removida e limpeza dos dispositivos de push.
@@ -14,7 +34,7 @@ Data: 2026-09-18
 - Migration `AddAccountPrivacy` torna o usuário do resultado final opcional e aplica `SET NULL`; endpoints `GET /api/v1/me/export` e `POST /api/v1/me/deletion`.
 - Testes de autenticação, ausência de segredos na exportação, confirmação por senha, remoção da conta, anonimização e transferência de propriedade.
 
-### Frontend — `não commitado`
+### Frontend — `60b3f577b8106ed0c317072a19d52917b94f97d8` (`6b`)
 
 - Nova tela Conta e privacidade com exportação por download na web e compartilhamento de arquivo JSON no Android/iOS.
 - Exclusão com senha atual, confirmação destrutiva e mensagens localizadas em português e inglês.

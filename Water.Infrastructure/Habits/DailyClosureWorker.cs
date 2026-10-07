@@ -3,6 +3,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Water.Application.Habits;
+using System.Diagnostics;
+using Water.Infrastructure.Diagnostics;
 
 namespace Water.Infrastructure.Habits;
 
@@ -25,9 +27,13 @@ public sealed class DailyClosureWorker(
 
     private async Task TryRunOnceAsync(CancellationToken cancellationToken)
     {
+        var started = Stopwatch.GetTimestamp();
+        using var activity = WaterTelemetry.Activities.StartActivity("job.daily-closure");
         try
         {
-            await RunOnceAsync(cancellationToken);
+            var succeeded = await RunOnceAsync(cancellationToken);
+            WaterTelemetry.RecordJob("daily-closure", succeeded, Stopwatch.GetElapsedTime(started));
+            if (!succeeded) activity?.SetStatus(ActivityStatusCode.Error);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -35,11 +41,13 @@ public sealed class DailyClosureWorker(
         }
         catch (Exception exception)
         {
+            WaterTelemetry.RecordJob("daily-closure", false, Stopwatch.GetElapsedTime(started));
+            activity?.SetStatus(ActivityStatusCode.Error);
             logger.LogError(exception, "Daily closure batch failed and will be retried on the next interval");
         }
     }
 
-    internal async Task RunOnceAsync(CancellationToken cancellationToken)
+    internal async Task<bool> RunOnceAsync(CancellationToken cancellationToken)
     {
         var startedAt = DateTimeOffset.UtcNow;
         IReadOnlyCollection<DailyClosureCandidate> candidates;
@@ -75,5 +83,6 @@ public sealed class DailyClosureWorker(
         logger.LogInformation(
             "Daily closure finished: {Completed} completed, {Failed} failed in {ElapsedMilliseconds} ms",
             completed, failed, (DateTimeOffset.UtcNow - startedAt).TotalMilliseconds);
+        return failed == 0;
     }
 }

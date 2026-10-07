@@ -91,6 +91,7 @@ public sealed class WaterDbContext(DbContextOptions<WaterDbContext> options)
 
         builder.Entity<DrinkEntry>(entry =>
         {
+            entry.Property(item => item.InputMethod).HasMaxLength(16).HasDefaultValue("unknown");
             entry.HasKey(item => item.Id);
             entry.HasIndex(item => new { item.UserId, item.ClientEntryId }).IsUnique();
             entry.HasIndex(item => new { item.UserId, item.OccurredAtUtc });

@@ -24,6 +24,8 @@ using Water.Application.Notifications;
 using Water.Infrastructure.Notifications;
 using Water.Application.Accounts;
 using Water.Infrastructure.Accounts;
+using Water.Application.Analytics;
+using Water.Infrastructure.Analytics;
 
 namespace Water.Infrastructure;
 
@@ -48,18 +50,21 @@ public static class DependencyInjection
         }).AddEntityFrameworkStores<WaterDbContext>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IHydrationService, HydrationService>();
+        services.AddScoped<IHydrationGoalService, HydrationGoalService>();
         services.AddScoped<IHabitService, HabitService>();
         services.AddScoped<IDailyHydrationProjectionService, DailyHydrationProjectionService>();
         services.AddScoped<IAchievementService, AchievementService>();
         services.AddScoped<IProgressionService, ProgressionService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IAccountPrivacyService, AccountPrivacyService>();
+        services.AddScoped<IProductMetricsService, ProductMetricsService>();
         services.AddScoped<IPublicProfileService, PublicProfileService>();
         services.AddScoped<ICosmeticService, CosmeticService>();
         services.AddScoped<IDailyClosureService, DailyClosureService>();
         services.AddScoped<IFriendService, FriendService>();
         services.AddScoped<IBlockService, BlockService>();
         services.AddScoped<IGroupService, GroupService>();
+        services.AddScoped<IGroupLeaderboardService, GroupLeaderboardService>();
         services.AddScoped<IFeedService, FeedService>();
         services.AddScoped<IContestService, ContestService>();
         services.AddScoped<IContestScoreService, ContestScoreService>();

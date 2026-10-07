@@ -3,6 +3,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Water.Application.Competition;
+using System.Diagnostics;
+using Water.Infrastructure.Diagnostics;
 
 namespace Water.Infrastructure.Competition;
 
@@ -21,13 +23,26 @@ public sealed class ContestClosureWorker(
 
     private async Task TryRunOnceAsync(CancellationToken token)
     {
-        try { await RunOnceAsync(token); }
+        var started = Stopwatch.GetTimestamp();
+        using var activity = WaterTelemetry.Activities.StartActivity("job.contest-closure");
+        try
+        {
+            var succeeded = await RunOnceAsync(token);
+            WaterTelemetry.RecordJob("contest-closure", succeeded, Stopwatch.GetElapsedTime(started));
+            if (!succeeded) activity?.SetStatus(ActivityStatusCode.Error);
+        }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
-        catch (Exception exception) { logger.LogError(exception, "Contest closure batch failed and will be retried"); }
+        catch (Exception exception)
+        {
+            WaterTelemetry.RecordJob("contest-closure", false, Stopwatch.GetElapsedTime(started));
+            activity?.SetStatus(ActivityStatusCode.Error);
+            logger.LogError(exception, "Contest closure batch failed and will be retried");
+        }
     }
 
-    internal async Task RunOnceAsync(CancellationToken token)
+    internal async Task<bool> RunOnceAsync(CancellationToken token)
     {
+        var succeeded = true;
         IReadOnlyCollection<Guid> contestIds;
         using (var scope = scopeFactory.CreateScope())
             contestIds = await scope.ServiceProvider.GetRequiredService<IContestFinalizationService>().GetDueAsync(options.Value.BatchSize, token);
@@ -40,7 +55,7 @@ public sealed class ContestClosureWorker(
                 await scope.ServiceProvider.GetRequiredService<IContestFinalizationService>().FinalizeAsync(contestId, token);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
-            catch (Exception exception) { logger.LogError(exception, "Contest closure failed for {ContestId}", contestId); }
+            catch (Exception exception) { succeeded = false; logger.LogError(exception, "Contest closure failed for {ContestId}", contestId); }
         }
 
         IReadOnlyCollection<Guid> rewardContestIds;
@@ -54,7 +69,8 @@ public sealed class ContestClosureWorker(
                 await scope.ServiceProvider.GetRequiredService<IContestRewardService>().GrantAsync(contestId, token);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
-            catch (Exception exception) { logger.LogError(exception, "Contest rewards failed for {ContestId}", contestId); }
+            catch (Exception exception) { succeeded = false; logger.LogError(exception, "Contest rewards failed for {ContestId}", contestId); }
         }
+        return succeeded;
     }
 }

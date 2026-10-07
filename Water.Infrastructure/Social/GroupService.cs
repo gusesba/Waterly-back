@@ -118,6 +118,8 @@ public sealed class GroupService(WaterDbContext dbContext, TimeProvider timeProv
             ?? throw new GroupInviteNotFoundException();
         var memberCount = await dbContext.GroupMemberships.AsNoTracking().CountAsync(item => item.GroupId == group.Id, token);
         var isMember = userId is not null && await dbContext.GroupMemberships.AsNoTracking().AnyAsync(item => item.GroupId == group.Id && item.UserId == userId, token);
+        await dbContext.GroupInvites.Where(item => item.Id == invite.Id).ExecuteUpdateAsync(
+            setters => setters.SetProperty(item => item.PreviewCount, item => item.PreviewCount + 1), token);
         return new GroupInvitePreviewResponse(group.Id, group.Name, owner.DisplayName, memberCount, invite.ExpiresAt, isMember);
     }
 
@@ -133,6 +135,8 @@ public sealed class GroupService(WaterDbContext dbContext, TimeProvider timeProv
             var invitedGroup = await dbContext.PrivateGroups.SingleAsync(item => item.Id == invite.GroupId, token);
             AddGroupJoinedEvent(invitedGroup, userId, timeProvider.GetUtcNow());
             await dbContext.SaveChangesAsync(token);
+            await dbContext.GroupInvites.Where(item => item.Id == invite.Id).ExecuteUpdateAsync(
+                setters => setters.SetProperty(item => item.AcceptanceCount, item => item.AcceptanceCount + 1), token);
         }
         await transaction.CommitAsync(token);
         var group = await dbContext.PrivateGroups.SingleAsync(item => item.Id == invite.GroupId, token);

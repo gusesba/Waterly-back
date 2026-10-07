@@ -13,6 +13,7 @@ public static class GroupEndpoints
         group.MapGet("/capacity", GetCapacityAsync);
         group.MapPost("/", CreateAsync);
         group.MapGet("/{groupId:guid}", GetAsync);
+        group.MapGet("/{groupId:guid}/leaderboard", GetLeaderboardAsync);
         group.MapPut("/{groupId:guid}", UpdateAsync);
         group.MapDelete("/{groupId:guid}", DeleteAsync);
         group.MapPost("/{groupId:guid}/members", AddMemberAsync);
@@ -31,6 +32,13 @@ public static class GroupEndpoints
     private static Task<IReadOnlyCollection<GroupSummaryResponse>> GetAllAsync(ClaimsPrincipal principal, IGroupService service, CancellationToken token) => service.GetAllAsync(UserId(principal), token);
     private static async Task<IResult> GetAsync(Guid groupId, ClaimsPrincipal principal, IGroupService service, CancellationToken token) => await Result(() => service.GetAsync(UserId(principal), groupId, token));
     private static Task<GroupCapacityResponse> GetCapacityAsync(ClaimsPrincipal principal, IGroupService service, CancellationToken token) => service.GetCapacityAsync(UserId(principal), token);
+    private static async Task<IResult> GetLeaderboardAsync(Guid groupId, ClaimsPrincipal principal,
+        IGroupLeaderboardService service, CancellationToken token, int page = 1, int pageSize = 20)
+    {
+        try { return TypedResults.Ok(await service.GetAsync(UserId(principal), groupId, page, pageSize, token)); }
+        catch (GroupNotFoundException) { return TypedResults.NotFound(); }
+        catch (GroupLeaderboardValidationException) { return TypedResults.BadRequest(); }
+    }
     private static async Task<IResult> CreateAsync(SaveGroupRequest request, ClaimsPrincipal principal, IGroupService service, CancellationToken token) => await Result(() => service.CreateAsync(UserId(principal), request, token));
     private static async Task<IResult> UpdateAsync(Guid groupId, SaveGroupRequest request, ClaimsPrincipal principal, IGroupService service, CancellationToken token) => await Result(() => service.UpdateAsync(UserId(principal), groupId, request, token));
     private static async Task<IResult> DeleteAsync(Guid groupId, ClaimsPrincipal principal, IGroupService service, CancellationToken token) => await EmptyResult(() => service.DeleteAsync(UserId(principal), groupId, token));
